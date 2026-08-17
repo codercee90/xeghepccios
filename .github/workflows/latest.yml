@@ -1,4 +1,4 @@
-name: latest
+name: Latest
 
 on:
   push:
@@ -14,7 +14,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 1. Chọn Xcode
+      # 1. Chọn phiên bản Xcode mới nhất trên Runner macos-15
       - name: Set up Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -29,30 +29,26 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 2. Tạo file offline.html/index.html làm fallback
-      - name: Prepare Web Assets
+      # 2. Đảm bảo thư mục web dist tồn tại
+      - name: Ensure web dist folder exists
         run: |
           mkdir -p dist
-          if [ -f "offline.html" ]; then
-            cp offline.html dist/index.html
-            cp offline.html dist/offline.html
-          elif [ ! -f dist/index.html ]; then
+          if [ ! -f dist/index.html ]; then
             echo '<!DOCTYPE html><html><head><title>Xe Ghep</title></head><body></body></html>' > dist/index.html
           fi
 
-      # 3. Sync Capacitor & Install Pods
-      - name: Sync Capacitor iOS Platform
+      # 3. Xóa ios cũ và tạo lại platform iOS
+      - name: Recreate Capacitor iOS Platform
         run: |
-          npx cap copy ios
-          cd ios/App && pod install
+          npx cap sync ios
 
-      # 4. Tạo Firebase Config
+      # 4. Tạo file cấu hình Firebase
       - name: Create GoogleService-Info.plist
         run: |
           mkdir -p ios/App/App
           echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" > ios/App/App/GoogleService-Info.plist
 
-      # 5. Giải nén Certificate & Provisioning Profile (Lấy cả UUID lẫn Profile Name)
+      # 6. Khởi tạo Chữ ký số & Provisioning Profile
       - name: Install Apple Certificate and Provisioning Profile
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
@@ -85,13 +81,15 @@ jobs:
           echo "PROVISIONING_PROFILE_UUID=$PP_UUID" >> $GITHUB_ENV
           echo "PROVISIONING_PROFILE_NAME=$PP_NAME" >> $GITHUB_ENV
 
-      # 6. Configure Project Signing
+      # 7. Cấu hình Code Signing CHỈ CHO TARGET APP
       - name: Configure Xcode Project Signing
         run: |
           gem install xcodeproj
           ruby -e '
             require "xcodeproj"
-            project = Xcodeproj::Project.open("ios/App/App.xcodeproj")
+            project_path = "ios/App/App.xcodeproj"
+            project = Xcodeproj::Project.open(project_path)
+            
             project.targets.each do |target|
               if target.name == "App"
                 target.build_configurations.each do |config|
@@ -100,13 +98,14 @@ jobs:
                   config.build_settings["CODE_SIGN_STYLE"] = "Manual"
                   config.build_settings["PROVISIONING_PROFILE_SPECIFIER"] = "${{ env.PROVISIONING_PROFILE_UUID }}"
                   config.build_settings["CODE_SIGN_IDENTITY"] = "Apple Distribution"
+                  config.build_settings["CODE_SIGN_ENTITLEMENTS"] = "App/App.entitlements"
                 end
               end
             end
             project.save
           '
 
-      # 7. Setup Export Options Plist (Fix: dùng PROVISIONING_PROFILE_NAME)
+      # 8. Cấu hình Export Options Plist
       - name: Setup Export Options Plist
         run: |
           cat <<EOF > ios/App/ExportOptions.plist
@@ -120,10 +119,12 @@ jobs:
               <string>${{ secrets.APPLE_TEAM_ID }}</string>
               <key>uploadSymbols</key>
               <true/>
+              <key>uploadBitcode</key>
+              <false/>
+              <key>manageAppVersionAndBuildNumber</key>
+              <true/>
               <key>signingStyle</key>
               <string>manual</string>
-              <key>destination</key>
-              <string>export</string>
               <key>provisioningProfiles</key>
               <dict>
                   <key>cc.xeghep.www.ios</key>
@@ -133,7 +134,7 @@ jobs:
           </plist>
           EOF
 
-      # 8. Build Archive và Export IPA (Fix: Bỏ -allowProvisioningUpdates)
+      # 9. Build Archive và xuất file IPA
       - name: Build Archive and Export IPA
         run: |
           cd ios/App
@@ -141,8 +142,14 @@ jobs:
           xcrun agvtool new-marketing-version "2.1"
           xcrun agvtool new-version -all ${{ github.run_number }}
 
+          if [ -d "App.xcworkspace" ]; then
+            BUILD_CMD="-workspace App.xcworkspace"
+          else
+            BUILD_CMD="-project App.xcodeproj"
+          fi
+
           xcodebuild archive \
-            -workspace App.xcworkspace \
+            $BUILD_CMD \
             -scheme App \
             -configuration Release \
             -archivePath $RUNNER_TEMP/App.xcarchive \
@@ -154,16 +161,16 @@ jobs:
           xcodebuild -exportArchive \
             -archivePath $RUNNER_TEMP/App.xcarchive \
             -exportOptionsPlist ExportOptions.plist \
-            -exportPath $RUNNER_TEMP/build_output
+            -exportPath $RUNNER_TEMP/build_output \
 
-      # 9. Upload IPA Artifact to GitHub
+      # 10. Upload IPA Artifact to GitHub
       - name: Upload IPA Artifact to GitHub
         uses: actions/upload-artifact@v4
         with:
           name: App-TestFlight-Release
           path: ${{ runner.temp }}/build_output/App.ipa
 
-      # 10. Upload IPA lên TestFlight
+      # 11. Upload IPA lên TestFlight bằng Action chuyên dụng
       - name: Upload IPA to TestFlight
         uses: apple-actions/upload-testflight-build@v1
         with:
