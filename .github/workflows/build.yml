@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 1. Đảm bảo thư mục web dist tồn tại để Capacitor không bị lỗi
+      # 1. Đảm bảo thư mục web dist tồn tại
       - name: Ensure web dist folder exists
         run: |
           mkdir -p dist
@@ -43,7 +43,7 @@ jobs:
           mkdir -p ios/App/App
           echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" > ios/App/App/GoogleService-Info.plist
 
-      # 4. Sync Capacitor (Lệnh này tự động cập nhật cấu hình và cài đặt Pods nếu cần)
+      # 4. Sync Capacitor
       - name: Sync Capacitor iOS
         run: npx cap sync ios
 
@@ -74,7 +74,7 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
-      # 6. Cấu hình Export Options
+      # 6. Cấu hình Export Options Plist với Team ID
       - name: Setup Export Options Plist
         run: |
           cat <<EOF > ios/App/ExportOptions.plist
@@ -84,6 +84,8 @@ jobs:
           <dict>
               <key>method</key>
               <string>app-store</string>
+              <key>teamID</key>
+              <string>${{ secrets.APPLE_TEAM_ID }}</string>
               <key>uploadSymbols</key>
               <true/>
               <key>uploadBitcode</key>
@@ -94,14 +96,13 @@ jobs:
           </plist>
           EOF
 
-      # 7. Build Archive và xuất file IPA (Dùng Xcode Project nếu chưa sinh Workspace)
+      # 7. Build Archive và xuất file IPA (Truyền trực tiếp Development Team & Signing)
       - name: Build Archive and Export IPA
         run: |
           cd ios/App
           
           xcrun agvtool new-version -all ${{ github.run_number }}
 
-          # Kiểm tra nếu có workspace thì dùng workspace, không thì dùng xcodeproj
           if [ -d "App.xcworkspace" ]; then
             BUILD_CMD="-workspace App.xcworkspace"
           else
@@ -113,7 +114,9 @@ jobs:
             -scheme App \
             -configuration Release \
             -archivePath $RUNNER_TEMP/App.xcarchive \
-            -allowProvisioningUpdates
+            -allowProvisioningUpdates \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
+            CODE_SIGN_STYLE="Automatic"
 
           xcodebuild -exportArchive \
             -archivePath $RUNNER_TEMP/App.xcarchive \
