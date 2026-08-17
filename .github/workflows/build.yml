@@ -99,7 +99,8 @@ jobs:
                   config.build_settings["PRODUCT_BUNDLE_IDENTIFIER"] = "cc.xeghep.www.ios"
                   config.build_settings["CODE_SIGN_STYLE"] = "Manual"
                   config.build_settings["PROVISIONING_PROFILE_SPECIFIER"] = "${{ env.PROVISIONING_PROFILE_UUID }}"
-                  config.build_settings["CODE_SIGN_IDENTITY"] = "iPhone Distribution"
+                  config.build_settings["CODE_SIGN_IDENTITY"] = "Apple Distribution"
+                  config.build_settings["CODE_SIGN_ENTITLEMENTS"] = "App/App.entitlements"
                 end
               end
             end
@@ -140,6 +141,7 @@ jobs:
         run: |
           cd ios/App
           
+          xcrun agvtool new-marketing-version "2.1"
           xcrun agvtool new-version -all ${{ github.run_number }}
 
           if [ -d "App.xcworkspace" ]; then
