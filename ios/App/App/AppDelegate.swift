@@ -15,6 +15,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         // 1. Tự khởi tạo CAPBridgeViewController để load Web App Capacitor (Sửa triệt để màn hình đen)
         let window = UIWindow(frame: UIScreen.main.bounds)
+        
+        // Đặt màu nền mặc định cho Window là #F2F2F7 (hoặc systemGroupedBackground)
+        let customBgColor = UIColor(red: 242/255.0, green: 242/255.0, blue: 247/255.0, alpha: 1.0)
+        window.backgroundColor = customBgColor
+        
         let bridgeVC = CAPBridgeViewController()
         window.rootViewController = bridgeVC
         window.makeKeyAndVisible()
