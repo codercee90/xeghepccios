@@ -2,6 +2,7 @@
   "appId": "cc.xeghep.www.ios",
   "appName": "XeGhep.CC",
   "webDir": "dist",
+  "bundleWebRuntime": false,
   "backgroundColor": "#F2F2F7",
   "plugins": {
     "BackgroundGeolocation": {
@@ -27,5 +28,9 @@
     "url": "https://www.xeghep.cc/native.php?fromNativeApp=1&fromApp=iosCapacitor",
     "cleartext": true,
     "errorPath": "offline.html"
+  },
+  "ios": {
+    "contentInset": "always",
+    "allowsLinkPreview": false
   }
 }
