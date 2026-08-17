@@ -73,8 +73,15 @@ jobs:
           
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+          
+          # Trích xuất UUID và Name của Provisioning Profile
+          PP_UUID=$(security cms -D -i $PP_PATH | xmllint --xpath 'string(//key[text()="UUID"]/following-sibling::string[1])' -)
+          PP_NAME=$(security cms -D -i $PP_PATH | xmllint --xpath 'string(//key[text()="Name"]/following-sibling::string[1])' -)
+          
+          echo "PROVISIONING_PROFILE_UUID=$PP_UUID" >> $GITHUB_ENV
+          echo "PROVISIONING_PROFILE_NAME=$PP_NAME" >> $GITHUB_ENV
 
-      # 6. Cấu hình Export Options Plist với Team ID
+      # 6. Cấu hình Export Options Plist
       - name: Setup Export Options Plist
         run: |
           cat <<EOF > ios/App/ExportOptions.plist
@@ -92,11 +99,16 @@ jobs:
               <false/>
               <key>manageAppVersionAndBuildNumber</key>
               <true/>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>cc.xeghep.www.ios</key>
+                  <string>${{ env.PROVISIONING_PROFILE_UUID }}</string>
+              </dict>
           </dict>
           </plist>
           EOF
 
-      # 7. Build Archive và xuất file IPA (Truyền trực tiếp Development Team & Signing)
+      # 7. Build Archive và xuất file IPA (Sử dụng Manual Signing)
       - name: Build Archive and Export IPA
         run: |
           cd ios/App
@@ -114,15 +126,15 @@ jobs:
             -scheme App \
             -configuration Release \
             -archivePath $RUNNER_TEMP/App.xcarchive \
-            -allowProvisioningUpdates \
             DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
-            CODE_SIGN_STYLE="Automatic"
+            CODE_SIGN_STYLE="Manual" \
+            PROVISIONING_PROFILE_SPECIFIER="${{ env.PROVISIONING_PROFILE_UUID }}" \
+            PRODUCT_BUNDLE_IDENTIFIER="cc.xeghep.www.ios"
 
           xcodebuild -exportArchive \
             -archivePath $RUNNER_TEMP/App.xcarchive \
             -exportOptionsPlist ExportOptions.plist \
-            -exportPath $RUNNER_TEMP/build_output \
-            -allowProvisioningUpdates
+            -exportPath $RUNNER_TEMP/build_output
 
       # 8. Upload IPA lên Artifacts
       - name: Upload IPA Artifact to GitHub
