@@ -161,7 +161,14 @@ jobs:
             -exportPath $RUNNER_TEMP/build_output \
             -allowProvisioningUpdates
 
-      # 10. Upload IPA lên TestFlight bằng Action chuyên dụng
+      # 10. Upload IPA Artifact to GitHub
+      - name: Upload IPA Artifact to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: App-TestFlight-Release
+          path: ${{ runner.temp }}/build_output/App.ipa
+
+      # 11. Upload IPA lên TestFlight bằng Action chuyên dụng
       - name: Upload IPA to TestFlight
         uses: apple-actions/upload-testflight-build@v1
         with:
