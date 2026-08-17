@@ -8,58 +8,79 @@ import UserNotifications
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
 
     var window: UIWindow?
+    private var isFirebaseAllowed = false
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         
+        // 1. Kiểm tra môi trường an toàn trước khi đụng vào Firebase
+        isFirebaseAllowed = shouldEnableFirebase()
+
         // 2. Cấu hình Notification Center
         UNUserNotificationCenter.current().delegate = self
 
-        // 3. Kiểm tra xem profile có hỗ trợ Push Notifications không trước khi đăng ký & khởi tạo Firebase
-        if isPushNotificationSupported() {
-            // 1. Cấu hình Firebase SDK & Messaging Delegate (Đã chuyển vào đây để bypass khi ký cá nhân/sai Bundle ID)
+        // 3. Chỉ khởi tạo Firebase & APNs nếu môi trường hợp lệ
+        if isFirebaseAllowed {
             FirebaseApp.configure()
             Messaging.messaging().delegate = self
-            
             application.registerForRemoteNotifications()
+            print("✅ [AppDelegate] Khởi tạo Firebase & Push Notifications thành công.")
         } else {
-            print("⚠️ [AppDelegate] Môi trường ký cá nhân/3uTools không hỗ trợ Push. Đã bỏ qua Firebase & đăng ký APNs để tránh crash/đen màn hình.")
+            print("⚠️ [AppDelegate] Môi trường 3uTools/Ký cá nhân/Bất đồng bộ Bundle ID. Đã TẮT TỰ ĐỘNG Firebase & APNs để tránh treo app.")
         }
 
         return true
     }
 
-    // Hàm kiểm tra môi trường ký (Chống crash khi ký cá nhân qua 3uTools)
-    private func isPushNotificationSupported() -> Bool {
+    // MARK: - Safe Environment Checkers
+
+    /// Kiểm tra điều kiện an toàn để bật Firebase
+    private func shouldEnableFirebase() -> Bool {
         #if TARGET_OS_SIMULATOR
         return false
         #else
-        // Đọc nhị phân embedded.mobileprovision xem có quyền aps-environment không
-        guard let path = Bundle.main.path(forResource: "embedded", ofType: "mobileprovision"),
-              let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
-              let content = String(data: data, encoding: .ascii) else {
-            // Nếu không tìm thấy profile (Build App Store chuẩn) -> Cho phép chạy bình thường
+        // Check 1: Bundle ID trong App phải trùng khớp với Bundle ID khai báo trong GoogleService-Info.plist
+        guard let plistPath = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
+              let plistDict = NSDictionary(contentsOfFile: plistPath),
+              let plistBundleID = plistDict["BUNDLE_ID"] as? String,
+              let actualBundleID = Bundle.main.bundleIdentifier else {
+            print("❌ [AppDelegate] Không tìm thấy hoặc lỗi đọc file GoogleService-Info.plist")
+            return false
+        }
+
+        if actualBundleID != plistBundleID {
+            print("⚠️ [AppDelegate] Mismatch Bundle ID! Actual: '\(actualBundleID)' vs Plist: '\(plistBundleID)'")
+            return false
+        }
+
+        // Check 2: Kiểm tra quyền Push Notification trong provisioning profile (chống crash APNs khi ký cá nhân)
+        guard let profilePath = Bundle.main.path(forResource: "embedded", ofType: "mobileprovision"),
+              let profileData = try? Data(contentsOf: URL(fileURLWithPath: profilePath)),
+              let profileString = String(data: profileData, encoding: .ascii) else {
+            // Không có file provisioning (VD: Build App Store / TF) -> Cho phép
             return true
         }
-        
-        // Nếu dùng chứng chỉ cá nhân (Free Personal Team) hoặc thiếu quyền aps-environment -> Trả về false
-        return content.contains("aps-environment")
+
+        return profileString.contains("aps-environment")
         #endif
     }
 
-    // Đăng ký APNs Token thành công
+    // MARK: - Push Notifications & Messaging Delegates (Protected)
+
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        guard isFirebaseAllowed else { return }
         Messaging.messaging().apnsToken = deviceToken
         NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
     }
 
-    // Lỗi khi đăng ký APNs (Bắt ngoại lệ an toàn, không throw crash)
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         print("⚠️ [AppDelegate] Lỗi đăng ký APNs: \(error.localizedDescription)")
-        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+        if isFirebaseAllowed {
+            NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+        }
     }
 
-    // Ủy quyền delegate FirebaseMessaging nhận Token thành công
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+        guard isFirebaseAllowed else { return }
         let dataDict: [String: String] = ["token": fcmToken ?? ""]
         NotificationCenter.default.post(
             name: Notification.Name("FCMToken"),
@@ -68,10 +89,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         )
     }
 
-    // Xử lý thông báo khi ứng dụng đang chạy foreground
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler([.badge, .sound, .alert])
     }
+
+    // MARK: - Universal Links & Deep Links
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
