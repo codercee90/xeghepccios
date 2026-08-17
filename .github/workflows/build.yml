@@ -164,3 +164,20 @@ jobs:
         with:
           name: App-TestFlight-Release
           path: ${{ runner.temp }}/build_output/App.ipa
+
+      - name: Upload IPA to TestFlight via App Store Connect
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          # Lưu khóa Auth Key (.p8)
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$PRIVATE_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8
+
+          # Upload IPA lên App Store Connect / TestFlight
+          xcrun altool --upload-app \
+            -f $RUNNER_TEMP/build_output/App.ipa \
+            -t ios \
+            --apiKey "$KEY_ID" \
+            --apiIssuer "$ISSUER_ID"
