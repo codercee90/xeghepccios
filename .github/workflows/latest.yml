@@ -155,7 +155,6 @@ jobs:
             -archivePath $RUNNER_TEMP/App.xcarchive \
             CODE_SIGN_STYLE="Manual" \
             CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE="${{ env.PROVISIONING_PROFILE_UUID }}" \
             DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}"
 
           xcodebuild -exportArchive \
