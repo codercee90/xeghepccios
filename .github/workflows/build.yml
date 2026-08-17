@@ -74,14 +74,36 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
           
-          # Trích xuất UUID và Name của Provisioning Profile
           PP_UUID=$(security cms -D -i $PP_PATH | xmllint --xpath 'string(//key[text()="UUID"]/following-sibling::string[1])' -)
           PP_NAME=$(security cms -D -i $PP_PATH | xmllint --xpath 'string(//key[text()="Name"]/following-sibling::string[1])' -)
           
           echo "PROVISIONING_PROFILE_UUID=$PP_UUID" >> $GITHUB_ENV
           echo "PROVISIONING_PROFILE_NAME=$PP_NAME" >> $GITHUB_ENV
 
-      # 6. Cấu hình Export Options Plist
+      # 6. Cấu hình Code Signing CHỈ CHO TARGET APP trong Xcode Project
+      - name: Configure Xcode Project Signing
+        run: |
+          gem install xcodeproj
+          ruby -e '
+            require "xcodeproj"
+            project_path = "ios/App/App.xcodeproj"
+            project = Xcodeproj::Project.open(project_path)
+            
+            project.targets.each do |target|
+              if target.name == "App"
+                target.build_configurations.each do |config|
+                  config.build_settings["DEVELOPMENT_TEAM"] = "${{ secrets.APPLE_TEAM_ID }}"
+                  config.build_settings["PRODUCT_BUNDLE_IDENTIFIER"] = "cc.xeghep.www.ios"
+                  config.build_settings["CODE_SIGN_STYLE"] = "Manual"
+                  config.build_settings["PROVISIONING_PROFILE_SPECIFIER"] = "${{ env.PROVISIONING_PROFILE_UUID }}"
+                  config.build_settings["CODE_SIGN_IDENTITY"] = "iPhone Distribution"
+                end
+              end
+            end
+            project.save
+          '
+
+      # 7. Cấu hình Export Options Plist
       - name: Setup Export Options Plist
         run: |
           cat <<EOF > ios/App/ExportOptions.plist
@@ -99,6 +121,8 @@ jobs:
               <false/>
               <key>manageAppVersionAndBuildNumber</key>
               <true/>
+              <key>signingStyle</key>
+              <string>manual</string>
               <key>provisioningProfiles</key>
               <dict>
                   <key>cc.xeghep.www.ios</key>
@@ -108,7 +132,7 @@ jobs:
           </plist>
           EOF
 
-      # 7. Build Archive và xuất file IPA (Sử dụng Manual Signing)
+      # 8. Build Archive và xuất file IPA
       - name: Build Archive and Export IPA
         run: |
           cd ios/App
@@ -126,17 +150,15 @@ jobs:
             -scheme App \
             -configuration Release \
             -archivePath $RUNNER_TEMP/App.xcarchive \
-            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
-            CODE_SIGN_STYLE="Manual" \
-            PROVISIONING_PROFILE_SPECIFIER="${{ env.PROVISIONING_PROFILE_UUID }}" \
-            PRODUCT_BUNDLE_IDENTIFIER="cc.xeghep.www.ios"
+            -allowProvisioningUpdates
 
           xcodebuild -exportArchive \
             -archivePath $RUNNER_TEMP/App.xcarchive \
             -exportOptionsPlist ExportOptions.plist \
-            -exportPath $RUNNER_TEMP/build_output
+            -exportPath $RUNNER_TEMP/build_output \
+            -allowProvisioningUpdates
 
-      # 8. Upload IPA lên Artifacts
+      # 9. Upload IPA lên Artifacts
       - name: Upload IPA Artifact to GitHub
         uses: actions/upload-artifact@v4
         with:
