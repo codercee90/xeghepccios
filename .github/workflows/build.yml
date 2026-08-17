@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 1. Tạo thư mục web dist tạm thời nếu chưa build web
+      # 1. Đảm bảo thư mục web dist tồn tại
       - name: Ensure web dist folder exists
         run: |
           mkdir -p dist
@@ -31,29 +31,32 @@ jobs:
             echo '<!DOCTYPE html><html><head><title>Xe Ghep</title></head><body></body></html>' > dist/index.html
           fi
 
-      # 2. Thêm nền tảng iOS nếu thư mục ios chưa tồn tại
+      # 2. Thêm nền tảng iOS
       - name: Add Capacitor iOS Platform
         run: |
           if [ ! -d "ios" ]; then
             npx cap add ios
           fi
 
-      # 3. Tạo Podfile mặc định cho Capacitor nếu chưa có
+      # 3. Tạo Podfile chuẩn có tích hợp helper script của Capacitor
       - name: Ensure Podfile exists
         run: |
           mkdir -p ios/App
-          if [ ! -f "ios/App/Podfile" ]; then
-            cat <<EOF > ios/App/Podfile
+          cat <<'EOF' > ios/App/Podfile
+          require_relative '../../node_modules/@capacitor/ios/scripts/pods_helpers'
+
           platform :ios, '13.0'
           use_frameworks!
 
-          # target definition
+          # ignore warnings from CocoaPods
+          inhibit_all_warnings!
+
           target 'App' do
+            config = get_capacitor_pod_resources
             cap_pods
             # pod dependencies will be inserted here by Capacitor
           end
           EOF
-          fi
 
       # 4. Tạo file cấu hình Firebase
       - name: Create GoogleService-Info.plist
@@ -61,7 +64,7 @@ jobs:
           mkdir -p ios/App/App
           echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" > ios/App/App/GoogleService-Info.plist
 
-      # 5. Cập nhật và đồng bộ Capacitor (tự động điền dependencies vào Podfile)
+      # 5. Cập nhật và đồng bộ Capacitor
       - name: Sync Capacitor iOS
         run: |
           npx cap copy ios
@@ -140,7 +143,7 @@ jobs:
             -exportPath $RUNNER_TEMP/build_output \
             -allowProvisioningUpdates
 
-      # 10. Đẩy bản build IPA lên Artifacts
+      # 10. Lưu bản build IPA vào Artifacts
       - name: Upload IPA Artifact to GitHub
         uses: actions/upload-artifact@v4
         with:
