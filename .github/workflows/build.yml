@@ -157,6 +157,9 @@ jobs:
             -archivePath $RUNNER_TEMP/App.xcarchive \
             -allowProvisioningUpdates
 
+          # ÉP COPY FILE PLIST TRỰC TIẾP VÀO BUNDLE NATIVE
+          cp ios/App/App/GoogleService-Info.plist $RUNNER_TEMP/App.xcarchive/Products/Applications/App.app/GoogleService-Info.plist
+
           xcodebuild -exportArchive \
             -archivePath $RUNNER_TEMP/App.xcarchive \
             -exportOptionsPlist ExportOptions.plist \
