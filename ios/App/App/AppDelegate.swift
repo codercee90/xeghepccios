@@ -5,13 +5,13 @@ import FirebaseMessaging
 import UserNotifications
 
 @UIApplicationMain
-class AppDelegate: CAPBridgeAppDelegate {
+class AppDelegate: CAPBridgeAppDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
 
     private var isFirebaseAllowed = false
 
     override func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         
-        // 1. Chỉ duy nhất hàm didFinishLaunchingWithOptions có trong CAPBridgeAppDelegate để gọi super
+        // 1. Load Capacitor WebView
         super.application(application, didFinishLaunchingWithOptions: launchOptions)
 
         // 2. Gán Delegate cho Notification Center
@@ -84,7 +84,7 @@ class AppDelegate: CAPBridgeAppDelegate {
         }
     }
 
-    @objc func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
         guard isFirebaseAllowed else { return }
         let dataDict: [String: String] = ["token": fcmToken ?? ""]
         NotificationCenter.default.post(
@@ -106,7 +106,7 @@ class AppDelegate: CAPBridgeAppDelegate {
         }
     }
 
-    // MARK: - Universal Links & Deep Links (Gửi cho Capacitor Proxy xử lý)
+    // MARK: - Universal Links & Deep Links
 
     override func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
