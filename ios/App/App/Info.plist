@@ -30,6 +30,9 @@
         <string>remote-notification</string>
     </array>
 
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+
     <!-- Quyền Camera, Micro, Thư viện ảnh -->
     <key>NSCameraUsageDescription</key>
     <string>Ứng dụng cần truy cập Camera để chụp ảnh đại diện và gửi hình ảnh chuyến đi.</string>
@@ -41,12 +44,17 @@
     <string>Ứng dụng cần quyền lưu ảnh vào Thư viện của bạn.</string>
 
     <!-- Quyền Vị trí (Foreground & Background) -->
-    <key>NSLocationWhenInUseUsageDescription</key>
-    <string>Ứng dụng cần vị trí của bạn để tìm chuyến xe gần nhất.</string>
-    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>Ứng dụng cần vị trí chạy ngầm để cập nhật định vị lộ trình di chuyển liên tục.</string>
-    <key>NSLocationAlwaysUsageDescription</key>
-    <string>Ứng dụng cần truy cập vị trí chạy ngầm để đảm bảo an toàn cho chuyến đi.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Ứng dụng cần vị trí để xác định điểm đón, trả khách và định vị vị trí của bạn trên bản đồ.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Ứng dụng cần truy cập vị trí liên tục kể cả khi tắt màn hình hoặc chuyển ứng dụng để cập nhật hành trình cho khách hàng.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Ứng dụng cần vị trí liên tục để duy trì định vị trên bản đồ theo thời gian thực.</string>
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict>
+		<key>PreciseLocation</key>
+		<string>Ứng dụng cần vị trí chính xác để dẫn đường và tính khoảng cách di chuyển thực tế.</string>
+	</dict>
 
     <!-- Cho phép mở app ngoài: Zalo, Google Maps -->
     <key>LSApplicationQueriesSchemes</key>
