@@ -31,52 +31,32 @@ jobs:
             echo '<!DOCTYPE html><html><head><title>Xe Ghep</title></head><body></body></html>' > dist/index.html
           fi
 
-      # 2. Thêm nền tảng iOS
+      # 2. Tạo hoặc làm sạch thư mục platform iOS để Capacitor sinh mới Podfile chuẩn
       - name: Add Capacitor iOS Platform
         run: |
           if [ ! -d "ios" ]; then
             npx cap add ios
           fi
 
-      # 3. Tạo Podfile chuẩn có tích hợp helper script của Capacitor
-      - name: Ensure Podfile exists
-        run: |
-          mkdir -p ios/App
-          cat <<'EOF' > ios/App/Podfile
-          require_relative '../../node_modules/@capacitor/ios/scripts/pods_helpers'
-
-          platform :ios, '13.0'
-          use_frameworks!
-
-          # ignore warnings from CocoaPods
-          inhibit_all_warnings!
-
-          target 'App' do
-            config = get_capacitor_pod_resources
-            cap_pods
-            # pod dependencies will be inserted here by Capacitor
-          end
-          EOF
-
-      # 4. Tạo file cấu hình Firebase
+      # 3. Tạo file cấu hình Firebase
       - name: Create GoogleService-Info.plist
         run: |
           mkdir -p ios/App/App
           echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" > ios/App/App/GoogleService-Info.plist
 
-      # 5. Cập nhật và đồng bộ Capacitor
+      # 4. Cập nhật & Sync Capacitor (Tự động cập nhật Podfile chuẩn)
       - name: Sync Capacitor iOS
         run: |
           npx cap copy ios
           npx cap update ios
 
-      # 6. Cài đặt các thư viện CocoaPods
+      # 5. Cài đặt các thư viện CocoaPods
       - name: Install CocoaPods
         run: |
           cd ios/App
           pod install
 
-      # 7. Khởi tạo Chữ ký số & Provisioning Profile
+      # 6. Khởi tạo Chữ ký số & Provisioning Profile
       - name: Install Apple Certificate and Provisioning Profile
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
@@ -103,7 +83,7 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
-      # 8. Cấu hình Export Options
+      # 7. Cấu hình Export Options
       - name: Setup Export Options Plist
         run: |
           cat <<EOF > ios/App/ExportOptions.plist
@@ -123,7 +103,7 @@ jobs:
           </plist>
           EOF
 
-      # 9. Build Archive và xuất file IPA
+      # 8. Build Archive và xuất file IPA
       - name: Build Archive and Export IPA
         run: |
           cd ios/App
@@ -143,7 +123,7 @@ jobs:
             -exportPath $RUNNER_TEMP/build_output \
             -allowProvisioningUpdates
 
-      # 10. Lưu bản build IPA vào Artifacts
+      # 9. Lưu bản build IPA vào Artifacts
       - name: Upload IPA Artifact to GitHub
         uses: actions/upload-artifact@v4
         with:
