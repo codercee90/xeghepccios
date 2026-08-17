@@ -11,18 +11,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         
-        // 1. Cấu hình Firebase SDK
-        FirebaseApp.configure()
-
-        // 2. Cấu hình Notification Center & Firebase Messaging
+        // 2. Cấu hình Notification Center
         UNUserNotificationCenter.current().delegate = self
-        Messaging.messaging().delegate = self
 
-        // 3. Kiểm tra xem profile có hỗ trợ Push Notifications không trước khi đăng ký
+        // 3. Kiểm tra xem profile có hỗ trợ Push Notifications không trước khi đăng ký & khởi tạo Firebase
         if isPushNotificationSupported() {
+            // 1. Cấu hình Firebase SDK & Messaging Delegate (Đã chuyển vào đây để bypass khi ký cá nhân/sai Bundle ID)
+            FirebaseApp.configure()
+            Messaging.messaging().delegate = self
+            
             application.registerForRemoteNotifications()
         } else {
-            print("⚠️ [AppDelegate] Môi trường ký cá nhân/3uTools không hỗ trợ Push. Đã bỏ qua đăng ký APNs để tránh crash.")
+            print("⚠️ [AppDelegate] Môi trường ký cá nhân/3uTools không hỗ trợ Push. Đã bỏ qua Firebase & đăng ký APNs để tránh crash/đen màn hình.")
         }
 
         return true
