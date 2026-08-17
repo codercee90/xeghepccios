@@ -1,0 +1,160 @@
+name: Build Unsigned IPA for 3uTools Testing
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-ipa:
+    runs-on: macos-15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 1. Chọn phiên bản Xcode mới nhất trên Runner macos-15
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: 'latest-stable'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 2. Đảm bảo thư mục web dist tồn tại
+      - name: Ensure web dist folder exists
+        run: |
+          mkdir -p dist
+          if [ ! -f dist/index.html ]; then
+            echo '<!DOCTYPE html><html><head><title>Xe Ghep</title></head><body></body></html>' > dist/index.html
+          fi
+
+      # 3. Sync Capacitor iOS
+      - name: Sync Capacitor iOS
+        run: npx cap sync ios
+
+      # 4. Tạo file cấu hình Firebase (Tự động fallback file mẫu nếu không cấu hình Secret)
+      - name: Create GoogleService-Info.plist
+        run: |
+          mkdir -p ios/App/App
+          if [ -n "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" ]; then
+            echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" > ios/App/App/GoogleService-Info.plist
+          else
+            cat <<EOF > ios/App/App/GoogleService-Info.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.plist">
+          <plist version="1.0">
+          <dict>
+              <key>CLIENT_ID</key>
+              <string>dummy-id</string>
+              <key>REVERSED_CLIENT_ID</key>
+              <string>com.googleusercontent.apps.dummy</string>
+              <key>API_KEY</key>
+              <string>dummy-api-key</string>
+              <key>GCM_SENDER_ID</key>
+              <string>123456789</string>
+              <key>PLIST_VERSION</key>
+              <string>1</string>
+              <key>BUNDLE_ID</key>
+              <string>cc.xeghep.www.ios</string>
+              <key>PROJECT_ID</key>
+              <string>dummy-project</string>
+              <key>STORAGE_BUCKET</key>
+              <string>dummy.appspot.com</string>
+              <key>IS_ADS_ENABLED</key>
+              <false/>
+              <key>IS_ANALYTICS_ENABLED</key>
+              <false/>
+              <key>IS_APPINVITE_ENABLED</key>
+              <true/>
+              <key>IS_GCM_ENABLED</key>
+              <true/>
+              <key>IS_SIGNIN_ENABLED</key>
+              <true/>
+              <key>GOOGLE_APP_ID</key>
+              <string>1:123456789:ios:abcdef</string>
+          </dict>
+          </plist>
+          EOF
+          fi
+
+      # 5. Ghi đè file App.entitlements - Bỏ aps-environment (Push Notifications)
+      - name: Remove aps-environment from App.entitlements
+        run: |
+          mkdir -p ios/App/App
+          cat <<EOF > ios/App/App/App.entitlements
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.plist">
+          <plist version="1.0">
+          <dict>
+          </dict>
+          </plist>
+          EOF
+
+      # 6. Cấu hình Xcode cho phép Build không cần Chữ ký số (Unsigned Build)
+      - name: Configure Xcode Project for Unsigned Build
+        run: |
+          gem install xcodeproj
+          ruby -e '
+            require "xcodeproj"
+            project_path = "ios/App/App.xcodeproj"
+            project = Xcodeproj::Project.open(project_path)
+            
+            project.targets.each do |target|
+              if target.name == "App"
+                target.build_configurations.each do |config|
+                  config.build_settings["PRODUCT_BUNDLE_IDENTIFIER"] = "cc.xeghep.www.ios"
+                  config.build_settings["CODE_SIGNING_ALLOWED"] = "NO"
+                  config.build_settings["CODE_SIGNING_REQUIRED"] = "NO"
+                  config.build_settings["CODE_SIGN_IDENTITY"] = ""
+                  config.build_settings["CODE_SIGN_STYLE"] = "Manual"
+                  config.build_settings["PROVISIONING_PROFILE_SPECIFIER"] = ""
+                  config.build_settings["CODE_SIGN_ENTITLEMENTS"] = "App/App.entitlements"
+                end
+              end
+            end
+            project.save
+          '
+
+      # 7. Build ứng dụng iOS và đóng gói thành file .ipa chuẩn
+      - name: Build Unsigned IPA for 3uTools Resigning
+        run: |
+          cd ios/App
+          
+          if [ -d "App.xcworkspace" ]; then
+            BUILD_CMD="-workspace App.xcworkspace"
+          else
+            BUILD_CMD="-project App.xcodeproj"
+          fi
+
+          # Build ứng dụng với cấu hình Release cho thiết bị iOS thật
+          xcodebuild \
+            $BUILD_CMD \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            BUILD_DIR=$RUNNER_TEMP/build_out
+
+          # Đóng gói App.app vào thư mục Payload để tạo file .ipa
+          mkdir -p $RUNNER_TEMP/ipa_out/Payload
+          cp -R $RUNNER_TEMP/build_out/Release-iphoneos/App.app $RUNNER_TEMP/ipa_out/Payload/
+          cd $RUNNER_TEMP/ipa_out
+          zip -r App-3uTools-Test.ipa Payload
+          
+      # 8. Upload file IPA Artifact lên GitHub
+      - name: Upload IPA Artifact to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: App-3uTools-Test-IPA
+          path: ${{ runner.temp }}/ipa_out/App-3uTools-Test.ipa
