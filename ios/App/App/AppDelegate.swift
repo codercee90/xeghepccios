@@ -21,6 +21,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         window.backgroundColor = customBgColor
         
         let bridgeVC = CAPBridgeViewController()
+        bridgeVC.view.backgroundColor = customBgColor // Đảm bảo view gốc của WebView không bị màu trắng chớp lên
         window.rootViewController = bridgeVC
         window.makeKeyAndVisible()
         self.window = window
