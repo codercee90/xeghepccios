@@ -11,13 +11,13 @@ class AppDelegate: CAPBridgeAppDelegate {
 
     override func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         
-        // 1. GỌI SUPER BẮT BUỘC: Giúp Capacitor khởi tạo Window và WebView (Sửa lỗi màn hình đen)
+        // 1. GỌI SUPER BẮT BUỘC ĐỂ LOAD CAPACITOR WEBVIEW
         super.application(application, didFinishLaunchingWithOptions: launchOptions)
 
         // 2. Gán Delegate cho Notification Center
         UNUserNotificationCenter.current().delegate = self
 
-        // 3. Xử lý Firebase an toàn trên Background Thread
+        // 3. Khởi tạo Firebase an toàn trên Background Thread
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self = self else { return }
             
@@ -26,15 +26,14 @@ class AppDelegate: CAPBridgeAppDelegate {
             DispatchQueue.main.async {
                 self.isFirebaseAllowed = allowed
                 if allowed {
-                    // Tránh crash nếu Firebase đã được init ở đâu đó trước
                     if FirebaseApp.app() == nil {
                         FirebaseApp.configure()
                     }
                     Messaging.messaging().delegate = self
                     UIApplication.shared.registerForRemoteNotifications()
-                    print("✅ [AppDelegate] Khởi tạo Firebase thành công.")
+                    print("✅ [AppDelegate] Firebase & Push Notification đã sẵn sàng.")
                 } else {
-                    print("⚠️ [AppDelegate] Môi trường Ký cá nhân/3uTools: Đã tắt Firebase & Push Notifications.")
+                    print("⚠️ [AppDelegate] Đã tắt Firebase (Môi trường không phù hợp hoặc ký cá nhân).")
                 }
             }
         }
@@ -48,7 +47,6 @@ class AppDelegate: CAPBridgeAppDelegate {
         #if targetEnvironment(simulator)
         return false
         #else
-        // 1. Kiểm tra GoogleService-Info.plist & Bundle ID
         guard let plistPath = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
               let plistData = FileManager.default.contents(atPath: plistPath),
               let plistDict = try? PropertyListSerialization.propertyList(from: plistData, options: [], format: nil) as? [String: Any],
@@ -61,7 +59,6 @@ class AppDelegate: CAPBridgeAppDelegate {
             return false
         }
 
-        // 2. Kiểm tra aps-environment từ mobileprovision
         guard let profilePath = Bundle.main.path(forResource: "embedded", ofType: "mobileprovision"),
               let profileData = try? Data(contentsOf: URL(fileURLWithPath: profilePath)),
               let profileString = String(data: profileData, encoding: .ascii) else {
@@ -75,9 +72,10 @@ class AppDelegate: CAPBridgeAppDelegate {
     // MARK: - Push Notifications Delegates
 
     override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        guard isFirebaseAllowed else { return }
-        Messaging.messaging().apnsToken = deviceToken
-        super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+        if isFirebaseAllowed {
+            Messaging.messaging().apnsToken = deviceToken
+            super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+        }
     }
 
     override func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
