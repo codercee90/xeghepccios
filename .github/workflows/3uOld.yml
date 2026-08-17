@@ -1,0 +1,76 @@
+name: Build iOS App
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24  # Khuyên dùng Node 20 LTS để ổn định nhất với Capacitor CLI
+          cache: 'npm'
+
+      - name: Install NPM Dependencies & Plugins
+        run: |
+          npm install
+          npm install @capacitor-community/background-geolocation --save
+          npm install @capacitor-firebase/messaging --save
+
+      - name: Build Web App
+        run: npm run build --if-present
+
+      # 1. Tạo file GoogleService-Info.plist từ GitHub Secrets
+      - name: Create GoogleService-Info.plist
+        run: |
+          mkdir -p ios/App/App
+          echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" > ios/App/App/GoogleService-Info.plist
+
+      # 2. Đồng bộ Capacitor & Cài đặt Native Pods (ĐÃ SỬA LỖI THIẾU PODS)
+      - name: Capacitor Sync iOS
+        run: |
+          npx cap add ios || true
+          npx cap sync ios
+
+      # 3. Build Xcode Binary (ĐÃ SỬA SANG DÙNG .xcworkspace)
+      - name: Build Xcode App
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj \
+                     -scheme App \
+                     -configuration Release \
+                     -sdk iphoneos \
+                     -derivedDataPath build \
+                     CODE_SIGN_IDENTITY="" \
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGNING_ALLOWED=NO \
+                     DISABLE_EXTRA_APP_PLIST_ENTITLEMENTS=YES
+
+      # 4. ĐÓNG GÓI IPA (INJECT TRỰC TIẾP FILE PLIST VÀO APP BUNDLE)
+      - name: Create Clean IPA Package
+        run: |
+          mkdir -p Payload
+          cp -r build/Build/Products/Release-iphoneos/App.app Payload/
+          
+          # ÉP COPY FILE PLIST TRỰC TIẾP VÀO BUNDLE NATIVE
+          cp ios/App/App/GoogleService-Info.plist Payload/App.app/GoogleService-Info.plist
+          
+          # Xóa signature rác để 3uTools ký lại từ đầu
+          rm -rf Payload/App.app/_CodeSignature
+          
+          zip -r App-unsigned.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-unsigned
+          path: App-unsigned.ipa
+          retention-days: 7
