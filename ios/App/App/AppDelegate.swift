@@ -5,19 +5,20 @@ import FirebaseMessaging
 import UserNotifications
 
 @UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
+class AppDelegate: CAPBridgeAppDelegate {
 
-    var window: UIWindow?
     private var isFirebaseAllowed = false
 
-    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+    override func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         
-        // 1. Gán delegate sơ bộ cho NotificationCenter để không bỏ lỡ push khi app bật
+        // 1. GỌI SUPER BẮT BUỘC: Giúp Capacitor khởi tạo Window và WebView (Sửa lỗi màn hình đen)
+        super.application(application, didFinishLaunchingWithOptions: launchOptions)
+
+        // 2. Gán Delegate cho Notification Center
         UNUserNotificationCenter.current().delegate = self
 
-        // 2. Kiểm tra môi trường & Khởi tạo Firebase bất đồng bộ trên Background Thread
-        // Giúp Main Thread giải phóng ngay lập tức -> Hết đơ/đen màn hình
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        // 3. Xử lý Firebase an toàn trên Background Thread
+        DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self = self else { return }
             
             let allowed = self.checkIfFirebaseAllowed()
@@ -25,12 +26,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             DispatchQueue.main.async {
                 self.isFirebaseAllowed = allowed
                 if allowed {
-                    FirebaseApp.configure()
+                    // Tránh crash nếu Firebase đã được init ở đâu đó trước
+                    if FirebaseApp.app() == nil {
+                        FirebaseApp.configure()
+                    }
                     Messaging.messaging().delegate = self
                     UIApplication.shared.registerForRemoteNotifications()
-                    print("✅ [AppDelegate] Khởi tạo Firebase & Push Notifications thành công.")
+                    print("✅ [AppDelegate] Khởi tạo Firebase thành công.")
                 } else {
-                    print("⚠️ [AppDelegate] Vô hiệu hóa Firebase & Push do môi trường không phù hợp.")
+                    print("⚠️ [AppDelegate] Môi trường Ký cá nhân/3uTools: Đã tắt Firebase & Push Notifications.")
                 }
             }
         }
@@ -38,7 +42,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         return true
     }
 
-    // MARK: - Safe Environment Checkers (Chạy trên Background Thread)
+    // MARK: - Safe Environment Checkers
 
     private func checkIfFirebaseAllowed() -> Bool {
         #if targetEnvironment(simulator)
@@ -50,44 +54,35 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
               let plistDict = try? PropertyListSerialization.propertyList(from: plistData, options: [], format: nil) as? [String: Any],
               let plistBundleID = plistDict["BUNDLE_ID"] as? String,
               let actualBundleID = Bundle.main.bundleIdentifier else {
-            print("❌ [AppDelegate] Không tìm thấy hoặc lỗi đọc file GoogleService-Info.plist.")
             return false
         }
 
         if actualBundleID != plistBundleID {
-            print("⚠️ [AppDelegate] Sai lệch Bundle ID (Thực tế: '\(actualBundleID)' vs Plist: '\(plistBundleID)').")
             return false
         }
 
-        // 2. Kiểm tra embedded.mobileprovision bằng I/O an toàn
+        // 2. Kiểm tra aps-environment từ mobileprovision
         guard let profilePath = Bundle.main.path(forResource: "embedded", ofType: "mobileprovision"),
               let profileData = try? Data(contentsOf: URL(fileURLWithPath: profilePath)),
               let profileString = String(data: profileData, encoding: .ascii) else {
-            // App đã được build Release/TestFlight (App Store bỏ file embedded.mobileprovision) -> Cho phép chạy
             return true
         }
 
-        let hasAPNsCapability = profileString.contains("aps-environment")
-        if !hasAPNsCapability {
-            print("⚠️ [AppDelegate] Bỏ qua APNs: Provisioning Profile không chứa quyền 'aps-environment'.")
-        }
-        
-        return hasAPNsCapability
+        return profileString.contains("aps-environment")
         #endif
     }
 
-    // MARK: - Push Notifications & Messaging Delegates
+    // MARK: - Push Notifications Delegates
 
-    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         guard isFirebaseAllowed else { return }
         Messaging.messaging().apnsToken = deviceToken
-        NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+        super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
     }
 
-    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    override func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         if isFirebaseAllowed {
-            print("⚠️ [AppDelegate] Lỗi đăng ký APNs: \(error.localizedDescription)")
-            NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+            super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
         }
     }
 
@@ -113,13 +108,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
     }
 
-    // MARK: - Universal Links & Deep Links (Capacitor Routing)
+    // MARK: - Universal Links & Deep Links
 
-    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-        return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
+    override func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        return super.application(app, open: url, options: options)
     }
 
-    func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-        return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
+    override func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
+        return super.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
 }
