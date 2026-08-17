@@ -12,20 +12,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         
-        // 1. Kiểm tra môi trường an toàn trước khi đụng vào Firebase
+        // 1. Kiểm tra môi trường an toàn trước khi kích hoạt Push/Firebase
         isFirebaseAllowed = shouldEnableFirebase()
 
-        // 2. Cấu hình Notification Center
-        UNUserNotificationCenter.current().delegate = self
-
-        // 3. Chỉ khởi tạo Firebase & APNs nếu môi trường hợp lệ
+        // 2. Chỉ khởi tạo Firebase, APNs và Notification Center khi môi trường hợp lệ
         if isFirebaseAllowed {
+            UNUserNotificationCenter.current().delegate = self
             FirebaseApp.configure()
             Messaging.messaging().delegate = self
             application.registerForRemoteNotifications()
             print("✅ [AppDelegate] Khởi tạo Firebase & Push Notifications thành công.")
         } else {
-            print("⚠️ [AppDelegate] Môi trường 3uTools/Ký cá nhân/Bất đồng bộ Bundle ID. Đã TẮT TỰ ĐỘNG Firebase & APNs để tránh treo app.")
+            print("⚠️ [AppDelegate] Phát hiện môi trường Ký cá nhân / 3uTools / Mất đồng bộ Bundle ID. Đã vô hiệu hóa Firebase & Push Notifications để bảo vệ App.")
         }
 
         return true
@@ -33,34 +31,41 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     // MARK: - Safe Environment Checkers
 
-    /// Kiểm tra điều kiện an toàn để bật Firebase
+    /// Kiểm tra điều kiện an toàn để bật Firebase & APNs
     private func shouldEnableFirebase() -> Bool {
         #if TARGET_OS_SIMULATOR
         return false
         #else
-        // Check 1: Bundle ID trong App phải trùng khớp với Bundle ID khai báo trong GoogleService-Info.plist
+        // Kiểm tra 1: Xác minh sự tồn tại của file GoogleService-Info.plist và so sánh Bundle ID
         guard let plistPath = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
               let plistDict = NSDictionary(contentsOfFile: plistPath),
               let plistBundleID = plistDict["BUNDLE_ID"] as? String,
               let actualBundleID = Bundle.main.bundleIdentifier else {
-            print("❌ [AppDelegate] Không tìm thấy hoặc lỗi đọc file GoogleService-Info.plist")
+            print("❌ [AppDelegate] Bỏ qua Firebase: Không tìm thấy hoặc lỗi đọc file GoogleService-Info.plist.")
             return false
         }
 
+        // Bỏ qua nếu Bundle ID thực tế không khớp với cấu hình Firebase
         if actualBundleID != plistBundleID {
-            print("⚠️ [AppDelegate] Mismatch Bundle ID! Actual: '\(actualBundleID)' vs Plist: '\(plistBundleID)'")
+            print("⚠️ [AppDelegate] Bỏ qua Firebase: Sai lệch Bundle ID (Thực tế: '\(actualBundleID)' vs Plist: '\(plistBundleID)').")
             return false
         }
 
-        // Check 2: Kiểm tra quyền Push Notification trong provisioning profile (chống crash APNs khi ký cá nhân)
+        // Kiểm tra 2: Quét Provisioning Profile tìm Entitlement "aps-environment"
         guard let profilePath = Bundle.main.path(forResource: "embedded", ofType: "mobileprovision"),
               let profileData = try? Data(contentsOf: URL(fileURLWithPath: profilePath)),
               let profileString = String(data: profileData, encoding: .ascii) else {
-            // Không có file provisioning (VD: Build App Store / TF) -> Cho phép
+            // Trường hợp Build Production/TestFlight (không chứa file embedded.mobileprovision) -> Cho phép chạy
             return true
         }
 
-        return profileString.contains("aps-environment")
+        // Chỉ trả về true nếu Profile có chứa quyền aps-environment
+        let hasAPNsCapability = profileString.contains("aps-environment")
+        if !hasAPNsCapability {
+            print("⚠️ [AppDelegate] Bỏ qua APNs: Provisioning Profile không chứa quyền 'aps-environment'.")
+        }
+        
+        return hasAPNsCapability
         #endif
     }
 
@@ -73,8 +78,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        print("⚠️ [AppDelegate] Lỗi đăng ký APNs: \(error.localizedDescription)")
         if isFirebaseAllowed {
+            print("⚠️ [AppDelegate] Lỗi đăng ký APNs: \(error.localizedDescription)")
             NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
         }
     }
@@ -90,7 +95,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.badge, .sound, .alert])
+        if isFirebaseAllowed {
+            completionHandler([.badge, .sound, .alert])
+        } else {
+            completionHandler([])
+        }
     }
 
     // MARK: - Universal Links & Deep Links
