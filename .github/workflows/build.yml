@@ -31,7 +31,7 @@ jobs:
             echo '<!DOCTYPE html><html><head><title>Xe Ghep</title></head><body></body></html>' > dist/index.html
           fi
 
-      # 2. Tạo hoặc làm sạch thư mục platform iOS để Capacitor sinh mới Podfile chuẩn
+      # 2. Khởi tạo platform iOS nếu chưa có
       - name: Add Capacitor iOS Platform
         run: |
           if [ ! -d "ios" ]; then
@@ -44,19 +44,13 @@ jobs:
           mkdir -p ios/App/App
           echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" > ios/App/App/GoogleService-Info.plist
 
-      # 4. Cập nhật & Sync Capacitor (Tự động cập nhật Podfile chuẩn)
+      # 4. Sync Capacitor (Lệnh này tự động khởi tạo Podfile và chạy pod install)
       - name: Sync Capacitor iOS
         run: |
           npx cap copy ios
           npx cap update ios
 
-      # 5. Cài đặt các thư viện CocoaPods
-      - name: Install CocoaPods
-        run: |
-          cd ios/App
-          pod install
-
-      # 6. Khởi tạo Chữ ký số & Provisioning Profile
+      # 5. Khởi tạo Chữ ký số & Provisioning Profile
       - name: Install Apple Certificate and Provisioning Profile
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
@@ -83,7 +77,7 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
-      # 7. Cấu hình Export Options
+      # 6. Cấu hình Export Options
       - name: Setup Export Options Plist
         run: |
           cat <<EOF > ios/App/ExportOptions.plist
@@ -103,7 +97,7 @@ jobs:
           </plist>
           EOF
 
-      # 8. Build Archive và xuất file IPA
+      # 7. Build Archive và xuất file IPA
       - name: Build Archive and Export IPA
         run: |
           cd ios/App
@@ -123,7 +117,7 @@ jobs:
             -exportPath $RUNNER_TEMP/build_output \
             -allowProvisioningUpdates
 
-      # 9. Lưu bản build IPA vào Artifacts
+      # 8. Lưu bản build IPA vào Artifacts
       - name: Upload IPA Artifact to GitHub
         uses: actions/upload-artifact@v4
         with:
