@@ -1,0 +1,31 @@
+{
+  "appId": "cc.xeghep.www.ios",
+  "appName": "XeGhep.CC",
+  "webDir": "dist",
+  "backgroundColor": "#F2F2F7",
+  "plugins": {
+    "BackgroundGeolocation": {
+      "backgroundMessage": "Đang cập nhật vị trí hành trình...",
+      "backgroundTitle": "XeGhep.CC đang chạy ngầm"
+    },
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "launchAutoHide": true,
+      "backgroundColor": "#F2F2F7",
+      "showSpinner": false,
+      "androidScaleType": "CENTER_CROP",
+      "androidSplashResourceName": "splash",
+      "iosScaleType": "small",
+      "splashFullScreen": false,
+      "splashImmersive": false
+    },
+    "FirebaseMessaging": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  },
+  "server": {
+    "url": "https://www.xeghep.cc/native.php?fromNativeApp=1&fromApp=iosCapacitor",
+    "cleartext": true,
+    "errorPath": "offline.html"
+  }
+}
