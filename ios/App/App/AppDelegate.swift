@@ -5,14 +5,20 @@ import FirebaseMessaging
 import UserNotifications
 
 @UIApplicationMain
-class AppDelegate: CAPBridgeAppDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
+
+    var window: UIWindow?
 
     private var isFirebaseAllowed = false
 
-    override func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         
-        // 1. Load Capacitor WebView
-        super.application(application, didFinishLaunchingWithOptions: launchOptions)
+        // 1. Tự khởi tạo CAPBridgeViewController để load Web App Capacitor (Sửa triệt để màn hình đen)
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        let bridgeVC = CAPBridgeViewController()
+        window.rootViewController = bridgeVC
+        window.makeKeyAndVisible()
+        self.window = window
 
         // 2. Gán Delegate cho Notification Center
         UNUserNotificationCenter.current().delegate = self
@@ -71,14 +77,14 @@ class AppDelegate: CAPBridgeAppDelegate, UNUserNotificationCenterDelegate, Messa
 
     // MARK: - Push Notifications Delegates
 
-    override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         if isFirebaseAllowed {
             Messaging.messaging().apnsToken = deviceToken
             NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
         }
     }
 
-    override func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         if isFirebaseAllowed {
             NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
         }
@@ -108,11 +114,11 @@ class AppDelegate: CAPBridgeAppDelegate, UNUserNotificationCenterDelegate, Messa
 
     // MARK: - Universal Links & Deep Links
 
-    override func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
     }
 
-    override func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
+    func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
 }
