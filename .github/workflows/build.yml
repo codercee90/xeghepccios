@@ -17,7 +17,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
           cache: 'npm'
 
       - name: Install dependencies
@@ -32,6 +32,12 @@ jobs:
         run: |
           npx cap copy ios
           npx cap update ios
+
+      # BỔ SUNG: Cài đặt CocoaPods để khởi tạo App.xcworkspace
+      - name: Install CocoaPods
+        run: |
+          cd ios/App
+          pod install
 
       - name: Install Apple Certificate and Provisioning Profile
         env:
@@ -52,6 +58,9 @@ jobs:
           echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
           security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          
+          # Đặt Keychain này làm mặc định để xcodebuild nhận diện
+          security default-keychain -s $KEYCHAIN_PATH
 
           # Giải mã Provisioning Profile
           PP_PATH=$RUNNER_TEMP/profile.mobileprovision
@@ -65,7 +74,7 @@ jobs:
         run: |
           cat <<EOF > ios/App/ExportOptions.plist
           <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.plist">
           <plist version="1.0">
           <dict>
               <key>method</key>
