@@ -14,6 +14,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 0. Chọn phiên bản Xcode mới nhất hỗ trợ iOS 26 SDK
+      - name: Select Xcode Version
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.app/Contents/Developer || sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          xcodebuild -version
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -165,17 +171,16 @@ jobs:
           name: App-TestFlight-Release
           path: ${{ runner.temp }}/build_output/App.ipa
 
+      # 10. Upload IPA lên TestFlight qua App Store Connect
       - name: Upload IPA to TestFlight via App Store Connect
         env:
           KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
         run: |
-          # Lưu khóa Auth Key (.p8)
           mkdir -p ~/.appstoreconnect/private_keys
           echo "$PRIVATE_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8
 
-          # Upload IPA lên App Store Connect / TestFlight
           xcrun altool --upload-app \
             -f $RUNNER_TEMP/build_output/App.ipa \
             -t ios \
