@@ -18,10 +18,32 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         UNUserNotificationCenter.current().delegate = self
         Messaging.messaging().delegate = self
 
-        // 3. Đăng ký nhận Remote Notifications
-        application.registerForRemoteNotifications()
+        // 3. Kiểm tra xem profile có hỗ trợ Push Notifications không trước khi đăng ký
+        if isPushNotificationSupported() {
+            application.registerForRemoteNotifications()
+        } else {
+            print("⚠️ [AppDelegate] Môi trường ký cá nhân/3uTools không hỗ trợ Push. Đã bỏ qua đăng ký APNs để tránh crash.")
+        }
 
         return true
+    }
+
+    // Hàm kiểm tra môi trường ký (Chống crash khi ký cá nhân qua 3uTools)
+    private func isPushNotificationSupported() -> Bool {
+        #if TARGET_OS_SIMULATOR
+        return false
+        #else
+        // Đọc nhị phân embedded.mobileprovision xem có quyền aps-environment không
+        guard let path = Bundle.main.path(forResource: "embedded", ofType: "mobileprovision"),
+              let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+              let content = String(data: data, encoding: .ascii) else {
+            // Nếu không tìm thấy profile (Build App Store chuẩn) -> Cho phép chạy bình thường
+            return true
+        }
+        
+        // Nếu dùng chứng chỉ cá nhân (Free Personal Team) hoặc thiếu quyền aps-environment -> Trả về false
+        return content.contains("aps-environment")
+        #endif
     }
 
     // Đăng ký APNs Token thành công
@@ -30,8 +52,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
     }
 
-    // Lỗi khi đăng ký APNs
+    // Lỗi khi đăng ký APNs (Bắt ngoại lệ an toàn, không throw crash)
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        print("⚠️ [AppDelegate] Lỗi đăng ký APNs: \(error.localizedDescription)")
         NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
     }
 
