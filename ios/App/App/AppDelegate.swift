@@ -12,54 +12,61 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         
-        // 1. Kiểm tra môi trường an toàn trước khi kích hoạt Push/Firebase
-        isFirebaseAllowed = shouldEnableFirebase()
+        // 1. Gán delegate sơ bộ cho NotificationCenter để không bỏ lỡ push khi app bật
+        UNUserNotificationCenter.current().delegate = self
 
-        // 2. Chỉ khởi tạo Firebase, APNs và Notification Center khi môi trường hợp lệ
-        if isFirebaseAllowed {
-            UNUserNotificationCenter.current().delegate = self
-            FirebaseApp.configure()
-            Messaging.messaging().delegate = self
-            application.registerForRemoteNotifications()
-            print("✅ [AppDelegate] Khởi tạo Firebase & Push Notifications thành công.")
-        } else {
-            print("⚠️ [AppDelegate] Phát hiện môi trường Ký cá nhân / 3uTools / Mất đồng bộ Bundle ID. Đã vô hiệu hóa Firebase & Push Notifications để bảo vệ App.")
+        // 2. Kiểm tra môi trường & Khởi tạo Firebase bất đồng bộ trên Background Thread
+        // Giúp Main Thread giải phóng ngay lập tức -> Hết đơ/đen màn hình
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            
+            let allowed = self.checkIfFirebaseAllowed()
+            
+            DispatchQueue.main.async {
+                self.isFirebaseAllowed = allowed
+                if allowed {
+                    FirebaseApp.configure()
+                    Messaging.messaging().delegate = self
+                    UIApplication.shared.registerForRemoteNotifications()
+                    print("✅ [AppDelegate] Khởi tạo Firebase & Push Notifications thành công.")
+                } else {
+                    print("⚠️ [AppDelegate] Vô hiệu hóa Firebase & Push do môi trường không phù hợp.")
+                }
+            }
         }
 
         return true
     }
 
-    // MARK: - Safe Environment Checkers
+    // MARK: - Safe Environment Checkers (Chạy trên Background Thread)
 
-    /// Kiểm tra điều kiện an toàn để bật Firebase & APNs
-    private func shouldEnableFirebase() -> Bool {
-        #if TARGET_OS_SIMULATOR
+    private func checkIfFirebaseAllowed() -> Bool {
+        #if targetEnvironment(simulator)
         return false
         #else
-        // Kiểm tra 1: Xác minh sự tồn tại của file GoogleService-Info.plist và so sánh Bundle ID
+        // 1. Kiểm tra GoogleService-Info.plist & Bundle ID
         guard let plistPath = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
-              let plistDict = NSDictionary(contentsOfFile: plistPath),
+              let plistData = FileManager.default.contents(atPath: plistPath),
+              let plistDict = try? PropertyListSerialization.propertyList(from: plistData, options: [], format: nil) as? [String: Any],
               let plistBundleID = plistDict["BUNDLE_ID"] as? String,
               let actualBundleID = Bundle.main.bundleIdentifier else {
-            print("❌ [AppDelegate] Bỏ qua Firebase: Không tìm thấy hoặc lỗi đọc file GoogleService-Info.plist.")
+            print("❌ [AppDelegate] Không tìm thấy hoặc lỗi đọc file GoogleService-Info.plist.")
             return false
         }
 
-        // Bỏ qua nếu Bundle ID thực tế không khớp với cấu hình Firebase
         if actualBundleID != plistBundleID {
-            print("⚠️ [AppDelegate] Bỏ qua Firebase: Sai lệch Bundle ID (Thực tế: '\(actualBundleID)' vs Plist: '\(plistBundleID)').")
+            print("⚠️ [AppDelegate] Sai lệch Bundle ID (Thực tế: '\(actualBundleID)' vs Plist: '\(plistBundleID)').")
             return false
         }
 
-        // Kiểm tra 2: Quét Provisioning Profile tìm Entitlement "aps-environment"
+        // 2. Kiểm tra embedded.mobileprovision bằng I/O an toàn
         guard let profilePath = Bundle.main.path(forResource: "embedded", ofType: "mobileprovision"),
               let profileData = try? Data(contentsOf: URL(fileURLWithPath: profilePath)),
               let profileString = String(data: profileData, encoding: .ascii) else {
-            // Trường hợp Build Production/TestFlight (không chứa file embedded.mobileprovision) -> Cho phép chạy
+            // App đã được build Release/TestFlight (App Store bỏ file embedded.mobileprovision) -> Cho phép chạy
             return true
         }
 
-        // Chỉ trả về true nếu Profile có chứa quyền aps-environment
         let hasAPNsCapability = profileString.contains("aps-environment")
         if !hasAPNsCapability {
             print("⚠️ [AppDelegate] Bỏ qua APNs: Provisioning Profile không chứa quyền 'aps-environment'.")
@@ -69,7 +76,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         #endif
     }
 
-    // MARK: - Push Notifications & Messaging Delegates (Protected)
+    // MARK: - Push Notifications & Messaging Delegates
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         guard isFirebaseAllowed else { return }
@@ -96,13 +103,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         if isFirebaseAllowed {
-            completionHandler([.badge, .sound, .alert])
+            if #available(iOS 14.0, *) {
+                completionHandler([.badge, .sound, .banner, .list])
+            } else {
+                completionHandler([.badge, .sound, .alert])
+            }
         } else {
             completionHandler([])
         }
     }
 
-    // MARK: - Universal Links & Deep Links
+    // MARK: - Universal Links & Deep Links (Capacitor Routing)
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
