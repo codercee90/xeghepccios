@@ -1,0 +1,173 @@
+name: latest
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-and-upload:
+    runs-on: macos-15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 1. Chọn Xcode
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: 'latest-stable'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 2. Tạo file offline.html/index.html làm fallback
+      - name: Prepare Web Assets
+        run: |
+          mkdir -p dist
+          if [ -f "offline.html" ]; then
+            cp offline.html dist/index.html
+            cp offline.html dist/offline.html
+          elif [ ! -f dist/index.html ]; then
+            echo '<!DOCTYPE html><html><head><title>Xe Ghep</title></head><body></body></html>' > dist/index.html
+          fi
+
+      # 3. Sync Capacitor & Install Pods
+      - name: Sync Capacitor iOS Platform
+        run: |
+          npx cap copy ios
+          cd ios/App && pod install
+
+      # 4. Tạo Firebase Config
+      - name: Create GoogleService-Info.plist
+        run: |
+          mkdir -p ios/App/App
+          echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" > ios/App/App/GoogleService-Info.plist
+
+      # 5. Giải nén Certificate & Provisioning Profile (Lấy cả UUID lẫn Profile Name)
+      - name: Install Apple Certificate and Provisioning Profile
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          PROVISION_PROFILE_BASE64: ${{ secrets.PROVISION_PROFILE_BASE64 }}
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 14)
+          
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 3600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+          security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          
+          security default-keychain -s $KEYCHAIN_PATH
+
+          PP_PATH=$RUNNER_TEMP/profile.mobileprovision
+          echo -n "$PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
+          
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+          
+          PP_UUID=$(security cms -D -i $PP_PATH | xmllint --xpath 'string(//key[text()="UUID"]/following-sibling::string[1])' -)
+          PP_NAME=$(security cms -D -i $PP_PATH | xmllint --xpath 'string(//key[text()="Name"]/following-sibling::string[1])' -)
+          
+          echo "PROVISIONING_PROFILE_UUID=$PP_UUID" >> $GITHUB_ENV
+          echo "PROVISIONING_PROFILE_NAME=$PP_NAME" >> $GITHUB_ENV
+
+      # 6. Configure Project Signing
+      - name: Configure Xcode Project Signing
+        run: |
+          gem install xcodeproj
+          ruby -e '
+            require "xcodeproj"
+            project = Xcodeproj::Project.open("ios/App/App.xcodeproj")
+            project.targets.each do |target|
+              if target.name == "App"
+                target.build_configurations.each do |config|
+                  config.build_settings["DEVELOPMENT_TEAM"] = "${{ secrets.APPLE_TEAM_ID }}"
+                  config.build_settings["PRODUCT_BUNDLE_IDENTIFIER"] = "cc.xeghep.www.ios"
+                  config.build_settings["CODE_SIGN_STYLE"] = "Manual"
+                  config.build_settings["PROVISIONING_PROFILE_SPECIFIER"] = "${{ env.PROVISIONING_PROFILE_UUID }}"
+                  config.build_settings["CODE_SIGN_IDENTITY"] = "Apple Distribution"
+                end
+              end
+            end
+            project.save
+          '
+
+      # 7. Setup Export Options Plist (Fix: dùng PROVISIONING_PROFILE_NAME)
+      - name: Setup Export Options Plist
+        run: |
+          cat <<EOF > ios/App/ExportOptions.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.plist">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store</string>
+              <key>teamID</key>
+              <string>${{ secrets.APPLE_TEAM_ID }}</string>
+              <key>uploadSymbols</key>
+              <true/>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>destination</key>
+              <string>export</string>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>cc.xeghep.www.ios</key>
+                  <string>${{ env.PROVISIONING_PROFILE_NAME }}</string>
+              </dict>
+          </dict>
+          </plist>
+          EOF
+
+      # 8. Build Archive và Export IPA (Fix: Bỏ -allowProvisioningUpdates)
+      - name: Build Archive and Export IPA
+        run: |
+          cd ios/App
+          
+          xcrun agvtool new-marketing-version "2.1"
+          xcrun agvtool new-version -all ${{ github.run_number }}
+
+          xcodebuild archive \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -archivePath $RUNNER_TEMP/App.xcarchive \
+            CODE_SIGN_STYLE="Manual" \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE="${{ env.PROVISIONING_PROFILE_UUID }}" \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}"
+
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/App.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath $RUNNER_TEMP/build_output
+
+      # 9. Upload IPA Artifact to GitHub
+      - name: Upload IPA Artifact to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: App-TestFlight-Release
+          path: ${{ runner.temp }}/build_output/App.ipa
+
+      # 10. Upload IPA lên TestFlight
+      - name: Upload IPA to TestFlight
+        uses: apple-actions/upload-testflight-build@v1
+        with:
+          app-path: ${{ runner.temp }}/build_output/App.ipa
+          issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          api-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          api-private-key: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
