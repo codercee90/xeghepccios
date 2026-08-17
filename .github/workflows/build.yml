@@ -23,39 +23,57 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Khởi tạo thư mục dist giả lập nếu chưa có build web
-      - name: Ensure dist folder exists
+      # 1. Tạo thư mục web dist tạm thời nếu chưa build web
+      - name: Ensure web dist folder exists
         run: |
           mkdir -p dist
           if [ ! -f dist/index.html ]; then
             echo '<!DOCTYPE html><html><head><title>Xe Ghep</title></head><body></body></html>' > dist/index.html
           fi
 
-      # Tự động tạo thư mục ios/App nếu trên GitHub chưa có
-      - name: Add and Sync Capacitor iOS
+      # 2. Thêm nền tảng iOS nếu thư mục ios chưa tồn tại
+      - name: Add Capacitor iOS Platform
         run: |
           if [ ! -d "ios" ]; then
             npx cap add ios
           fi
-          npx cap copy ios
-          npx cap update ios
 
+      # 3. Tạo Podfile mặc định cho Capacitor nếu chưa có
+      - name: Ensure Podfile exists
+        run: |
+          mkdir -p ios/App
+          if [ ! -f "ios/App/Podfile" ]; then
+            cat <<EOF > ios/App/Podfile
+          platform :ios, '13.0'
+          use_frameworks!
+
+          # target definition
+          target 'App' do
+            cap_pods
+            # pod dependencies will be inserted here by Capacitor
+          end
+          EOF
+          fi
+
+      # 4. Tạo file cấu hình Firebase
       - name: Create GoogleService-Info.plist
         run: |
           mkdir -p ios/App/App
           echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" > ios/App/App/GoogleService-Info.plist
 
-      # Cài đặt CocoaPods an toàn (chỉ chạy khi đã có Podfile)
-      - name: Install CocoaPods Dependencies
+      # 5. Cập nhật và đồng bộ Capacitor (tự động điền dependencies vào Podfile)
+      - name: Sync Capacitor iOS
+        run: |
+          npx cap copy ios
+          npx cap update ios
+
+      # 6. Cài đặt các thư viện CocoaPods
+      - name: Install CocoaPods
         run: |
           cd ios/App
-          if [ -f "Podfile" ]; then
-            pod install
-          else
-            echo "Podfile không tồn tại, kiểm tra lại bước cap add ios!"
-            exit 1
-          fi
+          pod install
 
+      # 7. Khởi tạo Chữ ký số & Provisioning Profile
       - name: Install Apple Certificate and Provisioning Profile
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
@@ -82,11 +100,12 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
+      # 8. Cấu hình Export Options
       - name: Setup Export Options Plist
         run: |
           cat <<EOF > ios/App/ExportOptions.plist
           <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.plist">
           <plist version="1.0">
           <dict>
               <key>method</key>
@@ -101,6 +120,7 @@ jobs:
           </plist>
           EOF
 
+      # 9. Build Archive và xuất file IPA
       - name: Build Archive and Export IPA
         run: |
           cd ios/App
@@ -120,6 +140,7 @@ jobs:
             -exportPath $RUNNER_TEMP/build_output \
             -allowProvisioningUpdates
 
+      # 10. Đẩy bản build IPA lên Artifacts
       - name: Upload IPA Artifact to GitHub
         uses: actions/upload-artifact@v4
         with:
