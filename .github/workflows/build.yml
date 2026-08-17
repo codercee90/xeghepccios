@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 1. Đảm bảo thư mục web dist tồn tại
+      # 1. Đảm bảo thư mục web dist tồn tại để Capacitor không bị lỗi
       - name: Ensure web dist folder exists
         run: |
           mkdir -p dist
@@ -31,7 +31,7 @@ jobs:
             echo '<!DOCTYPE html><html><head><title>Xe Ghep</title></head><body></body></html>' > dist/index.html
           fi
 
-      # 2. Xóa thư mục ios cũ (nếu có) và thêm mới platform iOS
+      # 2. Xóa ios cũ và tạo lại platform iOS
       - name: Recreate Capacitor iOS Platform
         run: |
           rm -rf ios
@@ -43,19 +43,11 @@ jobs:
           mkdir -p ios/App/App
           echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" > ios/App/App/GoogleService-Info.plist
 
-      # 4. Sync Capacitor
+      # 4. Sync Capacitor (Lệnh này tự động cập nhật cấu hình và cài đặt Pods nếu cần)
       - name: Sync Capacitor iOS
-        run: |
-          npx cap copy ios
-          npx cap update ios
+        run: npx cap sync ios
 
-      # 5. Cài đặt Pods để tạo App.xcworkspace
-      - name: Install CocoaPods
-        run: |
-          cd ios/App
-          pod install
-
-      # 6. Khởi tạo Chữ ký số & Provisioning Profile
+      # 5. Khởi tạo Chữ ký số & Provisioning Profile
       - name: Install Apple Certificate and Provisioning Profile
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
@@ -82,7 +74,7 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
-      # 7. Cấu hình Export Options
+      # 6. Cấu hình Export Options
       - name: Setup Export Options Plist
         run: |
           cat <<EOF > ios/App/ExportOptions.plist
@@ -102,15 +94,22 @@ jobs:
           </plist>
           EOF
 
-      # 8. Build Archive và xuất file IPA
+      # 7. Build Archive và xuất file IPA (Dùng Xcode Project nếu chưa sinh Workspace)
       - name: Build Archive and Export IPA
         run: |
           cd ios/App
           
           xcrun agvtool new-version -all ${{ github.run_number }}
 
+          # Kiểm tra nếu có workspace thì dùng workspace, không thì dùng xcodeproj
+          if [ -d "App.xcworkspace" ]; then
+            BUILD_CMD="-workspace App.xcworkspace"
+          else
+            BUILD_CMD="-project App.xcodeproj"
+          fi
+
           xcodebuild archive \
-            -workspace App.xcworkspace \
+            $BUILD_CMD \
             -scheme App \
             -configuration Release \
             -archivePath $RUNNER_TEMP/App.xcarchive \
@@ -122,7 +121,7 @@ jobs:
             -exportPath $RUNNER_TEMP/build_output \
             -allowProvisioningUpdates
 
-      # 9. Đẩy bản build IPA lên Artifacts
+      # 8. Upload IPA lên Artifacts
       - name: Upload IPA Artifact to GitHub
         uses: actions/upload-artifact@v4
         with:
