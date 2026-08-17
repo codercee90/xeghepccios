@@ -16,7 +16,7 @@
       "showSpinner": false,
       "androidScaleType": "CENTER_CROP",
       "androidSplashResourceName": "splash",
-      "iosScaleType": "small",
+      "iosScaleType": "aspectFit",
       "splashFullScreen": false,
       "splashImmersive": false
     },
