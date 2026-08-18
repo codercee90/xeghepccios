@@ -139,7 +139,7 @@ jobs:
         run: |
           cd ios/App
           
-          xcrun agvtool new-marketing-version "2.1"
+          xcrun agvtool new-marketing-version "2.2"
           xcrun agvtool new-version -all ${{ github.run_number }}
 
           if [ -d "App.xcworkspace" ]; then
