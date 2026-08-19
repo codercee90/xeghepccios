@@ -3,6 +3,8 @@ workflows:
     name: iOS Capacitor Build & TestFlight
     max_build_duration: 120
     instance_type: mac_mini_m1
+    integrations:
+      app_store_connect: XeGhepCC
     environment:
       ios_signing:
         distribution_type: app_store
