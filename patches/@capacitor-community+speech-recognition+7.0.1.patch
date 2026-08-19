@@ -1,9 +1,9 @@
 diff --git a/node_modules/@capacitor-community/speech-recognition/Package.swift b/node_modules/@capacitor-community/speech-recognition/Package.swift
 new file mode 100644
-index 0000000..f2aaaa7
+index 0000000..3384054
 --- /dev/null
 +++ b/node_modules/@capacitor-community/speech-recognition/Package.swift
-@@ -0,0 +1,26 @@
+@@ -0,0 +1,39 @@
 +// swift-tools-version: 5.9
 +import PackageDescription
 +
@@ -20,13 +20,26 @@ index 0000000..f2aaaa7
 +        .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", branch: "main")
 +    ],
 +    targets: [
++        // Target 1: Chứa mã Objective-C (Header & Implementation)
 +        .target(
-+            name: "SpeechRecognitionPlugin",
++            name: "SpeechRecognitionPluginObjC",
 +            dependencies: [
 +                .product(name: "Capacitor", package: "capacitor-swift-pm"),
 +                .product(name: "Cordova", package: "capacitor-swift-pm")
 +            ],
-+            path: "ios/Plugin"
++            path: "ios/Plugin",
++            sources: ["SpeechRecognitionPlugin.m"]
++        ),
++        // Target 2: Chứa mã Swift (Phụ thuộc vào Target ObjC)
++        .target(
++            name: "SpeechRecognitionPlugin",
++            dependencies: [
++                "SpeechRecognitionPluginObjC",
++                .product(name: "Capacitor", package: "capacitor-swift-pm"),
++                .product(name: "Cordova", package: "capacitor-swift-pm")
++            ],
++            path: "ios/Plugin",
++            sources: ["SpeechRecognitionPlugin.swift", "SpeechRecognition.swift"]
 +        )
 +    ]
 +)
