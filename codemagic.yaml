@@ -12,7 +12,7 @@ workflows:
       vars:
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
-      node: 20
+      node: 24
       xcode: latest
       cocoapods: default
     scripts:
