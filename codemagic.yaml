@@ -16,9 +16,6 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
-      - name: Fetch iOS signing profiles
-        script: |
-          app-store-connect fetch-profiles --create
       - name: Install dependencies
         script: |
           npm install
