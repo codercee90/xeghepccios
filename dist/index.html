@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="vi" translate="no" class="notranslate">
 <head>
@@ -835,6 +834,8 @@
 
 	<script>
 		const urlParams = new URLSearchParams(window.location.search);
+		urlParams.set('fromNativeApp', '1');
+		urlParams.set('fromApp', 'iosCapacitor');
 		const pfxSplit = `#####`;
 		const pfxSplitCallback = `@@@@@`;
 		let homePage = 'https://www.xeghep.cc/native.php?fromNativeApp=1';
