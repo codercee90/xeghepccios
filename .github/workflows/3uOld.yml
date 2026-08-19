@@ -23,6 +23,8 @@ jobs:
           npm install @capacitor-community/background-geolocation --save
           npm install @capacitor-firebase/messaging --save
 
+          npx patch-package
+
       - name: Build Web App
         run: npm run build --if-present
 
