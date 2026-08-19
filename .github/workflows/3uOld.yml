@@ -34,6 +34,12 @@ jobs:
           mkdir -p ios/App/App
           echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" > ios/App/App/GoogleService-Info.plist
 
+      # 2. XÓA BỘ NHỚ TẠM XCODE (Đặt ở đây)
+      - name: Clean Xcode DerivedData & Cache
+        run: |
+          rm -rf ~/Library/Developer/Xcode/DerivedData/*
+          rm -rf ios/App/App.xcworkspace/xcshareddata/swiftpm/Package.resolved
+
       # 2. Đồng bộ Capacitor & Cài đặt Native Pods (ĐÃ SỬA LỖI THIẾU PODS)
       - name: Capacitor Sync iOS
         run: |
