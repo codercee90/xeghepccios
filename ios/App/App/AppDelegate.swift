@@ -17,7 +17,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // 1. Gán Delegate cho Notification Center NGAY ĐẦU HÀM
         UNUserNotificationCenter.current().delegate = self
 
-        // 2. Tự khởi tạo CAPBridgeViewController để load Web App Capacitor
+        // 2. Khởi tạo UI CAPBridgeViewController
         let window = UIWindow(frame: UIScreen.main.bounds)
         let customBgColor = UIColor(red: 242/255.0, green: 242/255.0, blue: 247/255.0, alpha: 1.0)
         window.backgroundColor = customBgColor
@@ -28,7 +28,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         window.makeKeyAndVisible()
         self.window = window
 
-        // 3. Kiểm tra môi trường ĐỒNG BỘ (SYNC) để tránh mất sự kiện Cold Start
+        // 3. Kiểm tra môi trường ĐỒNG BỘ
         self.isFirebaseAllowed = self.checkIfFirebaseAllowed()
         
         if self.isFirebaseAllowed {
@@ -38,7 +38,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             Messaging.messaging().delegate = self
             
             // Xin quyền thông báo & Đăng ký APNs
-            self.requestNotificationPermission(application: application)
+            let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
+            UNUserNotificationCenter.current().requestAuthorization(options: authOptions) { granted, error in
+                if let error = error {
+                    print("❌ Lỗi xin quyền Push: \(error.localizedDescription)")
+                    return
+                }
+                if granted {
+                    DispatchQueue.main.async {
+                        UIApplication.shared.registerForRemoteNotifications()
+                    }
+                }
+            }
             
             print("✅ [AppDelegate] Firebase & Push Notification đã sẵn sàng.")
         } else {
@@ -46,25 +57,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
 
         return true
-    }
-
-    // MARK: - Xin quyền thông báo (Bắt buộc cho iOS)
-    private func requestNotificationPermission(application: UIApplication) {
-        let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
-        UNUserNotificationCenter.current().requestAuthorization(options: authOptions) { granted, error in
-            if let error = error {
-                print("❌ Lỗi xin quyền Push: \(error.localizedDescription)")
-                return
-            }
-            
-            if granted {
-                DispatchQueue.main.async {
-                    application.registerForRemoteNotifications()
-                }
-            } else {
-                print("⚠️ Người dùng từ chối cấp quyền thông báo.")
-            }
-        }
     }
 
     // MARK: - Safe Environment Checkers (Bypasser) - GIỮ NGUYÊN LOGIC CỦA BẠN
@@ -105,14 +97,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         if isFirebaseAllowed {
             Messaging.messaging().apnsToken = deviceToken
-            // Chuyển Token cho Capacitor Proxy phân phối
-            ApplicationDelegateProxy.shared.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+            NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
         }
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         if isFirebaseAllowed {
-            ApplicationDelegateProxy.shared.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+            NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
         }
     }
 
@@ -126,7 +117,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         )
     }
 
-    // Hiển thị thông báo khi App đang mở trên màn hình (Foreground)
+    // Hiển thị thông báo khi App đang mở (Foreground)
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         if isFirebaseAllowed {
             if #available(iOS 14.0, *) {
@@ -139,17 +130,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
     }
 
-    // BẮT SỰ KIỆN CLICK VÀO THÔNG BÁO (Tất cả trạng thái: Killed, Background, Foreground)
+    // BẮT SỰ KIỆN CLICK VÀO THÔNG BÁO (Tất cả trạng thái)
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         if isFirebaseAllowed {
-            // Chuyển giao hoàn toàn cho Capacitor Proxy tự queue và bắn Event xuống JS
-            ApplicationDelegateProxy.shared.userNotificationCenter(center, didReceive: response) {
-                UIApplication.shared.applicationIconBadgeNumber = 0
-                completionHandler()
-            }
-        } else {
-            completionHandler()
+            // Bắn event qua NotificationCenter chuẩn của Capacitor
+            NotificationCenter.default.post(
+                name: Notification.Name("capacitorDidReceiveNotification"),
+                object: response
+            )
         }
+        
+        UIApplication.shared.applicationIconBadgeNumber = 0
+        completionHandler()
     }
 
     // MARK: - Universal Links & Deep Links
