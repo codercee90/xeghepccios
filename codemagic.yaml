@@ -14,7 +14,7 @@ workflows:
         XCODE_SCHEME: "App"
       groups:
         - GoogleServicesPlist
-      node: 20
+      node: 24
       xcode: latest
     scripts:
       - name: Install dependencies
