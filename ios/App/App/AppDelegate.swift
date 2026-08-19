@@ -130,7 +130,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         if isFirebaseAllowed {
             // Đẩy event xuống Capacitor Bridge
-            NotificationCenter.default.post(name: Notification.Name.capacitorDidReceiveNotification, object: response)
+            NotificationCenter.default.post(name: Notification.Name("capacitorDidReceiveNotification"), object: response)
         }
         
         // Tự động xoá badge khi click vào thông báo
