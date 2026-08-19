@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="vi" translate="no" class="notranslate">
 <head>
@@ -833,7 +834,7 @@
     </style>
 
 	<script>
-		const urlParams = new URLSearchParams(window.location.search);
+		let urlParams = new URLSearchParams(window.location.search);
 		urlParams.set('fromNativeApp', '1');
 		urlParams.set('fromApp', 'iosCapacitor');
 		const pfxSplit = `#####`;
@@ -4974,29 +4975,105 @@ async function getCapacitorNativeFcmToken() {
 
 async function initGlobalNotificationListeners() {
     if (isCapacitorPushInitialized) return;
-    
+
     const PushPlugins = getCapacitorPushPlugin();
     const FirebaseMessaging = getFirebaseMessagingPlugin();
 
-    const executeLinkFromNotification = (data) => {
-        if (data && data.url) {
-            sendAjaxRequest('https://www.xeghep.cc/AjaxLoad.php', 'GET', null, { act: 'executeLink', link: data.url }, function () {
-                eraseCookie('nativeExecuteLink');
-            }, false, false, null, null);
+    // Hàm trích xuất URL an toàn từ nhiều định dạng Payload khác nhau
+    const extractUrlFromData = (dataObj) => {
+        if (!dataObj) return null;
+        
+        // Trường hợp 1: data.url nằm trực tiếp
+        if (dataObj.url) return dataObj.url;
+        
+        // Trường hợp 2: FCM gửi data dưới dạng chuỗi JSON mã hóa
+        if (typeof dataObj === 'string') {
+            try {
+                const parsed = JSON.parse(dataObj);
+                if (parsed.url) return parsed.url;
+            } catch (e) {}
+        }
+
+        // Trường hợp 3: Nằm trong object custom / notification
+        if (dataObj.data?.url) return dataObj.data.url;
+
+        return null;
+    };
+
+    const executeLinkFromNotification = (rawPayload) => {
+        //console.log('Payload nhận được từ Notification:', JSON.stringify(rawPayload));
+        let targetUrl = extractUrlFromData(rawPayload);
+
+        if (targetUrl) {
+			targetUrl = targetUrl
+				.replace(/([?&])from_push=[^&]*&?/g, '$1') // Xóa from_push và dấu & nối sau nó
+				.replace(/[?&]$/, '')                       // Xóa ? hoặc & thừa ở cuối URL
+				.replace(/\?&/, '?');                        // Sửa ?& thành ? nếu từ này đứng đầu danh sách param
+            //console.log('Thực thi chuyển hướng URL:', targetUrl);
+            sendAjaxRequest(
+                'https://www.xeghep.cc/AjaxLoad.php', 
+                'GET', 
+                null, 
+                { act: 'executeLink', link: targetUrl }, 
+                function () { eraseCookie('nativeExecuteLink'); }, 
+                false, 
+                false, 
+                null, 
+                null
+            );
+        } else {
+            console.warn('Không tìm thấy thuộc tính url trong notification payload!');
         }
     };
 
-    if ((isNativeIOS() || isNativeAndroid()) && FirebaseMessaging) {
-        isCapacitorPushInitialized = true;
-        FirebaseMessaging.addListener('notificationActionPerformed', (event) => {
-            executeLinkFromNotification(event.notification?.data);
-        });
-    } else if (PushPlugins) {
-        isCapacitorPushInitialized = true;
-        PushPlugins.addListener('pushNotificationActionPerformed', (action) => {
-            executeLinkFromNotification(action.notification?.data);
-        });
-    }
+    // 1. NHÁNH FIREBASE MESSAGING
+	if ((isNativeIOS() || isNativeAndroid()) && FirebaseMessaging) {
+		isCapacitorPushInitialized = true;
+		console.log('Đã khởi tạo FirebaseMessaging Push Listener');
+
+		const handleAction = (event) => {
+			//console.log('>>> FirebaseMessaging CLICKED Event Triggered:', JSON.stringify(event));
+			const notification = event.notification || {};
+			const payload = notification.data || notification.customData || notification;
+			executeLinkFromNotification(payload);
+		};
+
+		const handleReceived = (event) => {
+			//console.log('>>> FirebaseMessaging FOREGROUND Event Received:', JSON.stringify(event));
+		};
+
+		// Đăng ký CẢ 2 TÊN EVENT CLICK (Do tùy phiên bản plugin bạn cài)
+		FirebaseMessaging.addListener('pushNotificationActionPerformed', handleAction);
+		FirebaseMessaging.addListener('notificationActionPerformed', handleAction);
+
+		// Đăng ký CẢ 2 TÊN EVENT RECEIVE (Foreground)
+		FirebaseMessaging.addListener('pushNotificationReceived', handleReceived);
+		FirebaseMessaging.addListener('notificationReceived', handleReceived);
+
+
+		// 3. KIỂM TRA THÔNG BÁO MỞ APP KHI COLD START (App bị kill hoàn toàn)
+		// Dùng getLaunchedNotification thay vì getDeliveredNotifications
+		if (typeof FirebaseMessaging.getLaunchedNotification === 'function') {
+			FirebaseMessaging.getLaunchedNotification().then((res) => {
+				if (res && res.notification) {
+					//console.log('>>> [Cold Start] Mở app từ click thông báo:', res.notification);
+					const notification = res.notification;
+					const payload = notification.data || notification.customData || notification;
+					executeLinkFromNotification(payload);
+				}
+			}).catch(err => console.log('Lỗi kiểm tra launched notification:', err));
+		}
+	// 2. NHÁNH CAPACITOR PUSH NOTIFICATIONS GỐC (FALLBACK)
+	} else if (PushPlugins) {
+		isCapacitorPushInitialized = true;
+
+		PushPlugins.addListener('pushNotificationActionPerformed', (action) => {
+			const notification = action.notification || {};
+			const payload = notification.data || notification.customData || notification;
+
+			executeLinkFromNotification(payload);
+		});
+	}
 }
 
 async function getSWRegistrationWithTimeout(timeoutMs = 6000) {
