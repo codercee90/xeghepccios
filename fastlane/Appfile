@@ -1,0 +1,8 @@
+# Bundle Identifier của ứng dụng iOS (lấy từ Xcode hoặc App Store Connect)
+app_identifier("cc.xeghep.www.ios")
+
+# Tài khoản Apple ID (Email chủ sở hữu / Quản trị viên)
+apple_id("codercee@gmail.com")
+
+# Team ID của tài khoản Apple Developer (Gồm 10 ký tự, lấy trên developer.apple.com)
+team_id("HK58UX9N3D")
