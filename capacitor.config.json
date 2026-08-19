@@ -24,11 +24,6 @@
       "presentationOptions": ["badge", "sound", "alert"]
     }
   },
-  "server": {
-    "url": "https://www.xeghep.cc/native.php?fromNativeApp=1&fromApp=iosCapacitor",
-    "cleartext": true,
-    "errorPath": "offline.html"
-  },
   "ios": {
     "contentInset": "always",
     "allowsLinkPreview": false
