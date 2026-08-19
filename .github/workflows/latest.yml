@@ -41,16 +41,6 @@ jobs:
       - name: Recreate Capacitor iOS Platform
         run: |
           npx cap sync ios
-          sed -i '' -e 's/\.v15/\.v13/g' ios/App/CapApp-SPM/Package.swift || true
-
-      # 3.5. Hạ minOS xuống 13 trong Info.plist SAU KHHI SYNC
-      - name: Add Export Compliance Flag to Info.plist
-        run: |
-          PLIST_PATH="ios/App/App/Info.plist"
-          if [ -f "$PLIST_PATH" ]; then
-            /usr/libexec/PlistBuddy -c "Add :MinimumOSVersion string 13.0" "$PLIST_PATH" || \
-            /usr/libexec/PlistBuddy -c "Set :MinimumOSVersion 13.0" "$PLIST_PATH"
-          fi
 
       # 4. Tạo file cấu hình Firebase
       - name: Create GoogleService-Info.plist
