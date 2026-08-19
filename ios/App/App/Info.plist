@@ -42,6 +42,8 @@
     <string>Ứng dụng cần truy cập Thư viện ảnh để chọn hình ảnh gửi trong ứng dụng.</string>
     <key>NSPhotoLibraryAddUsageDescription</key>
     <string>Ứng dụng cần quyền lưu ảnh vào Thư viện của bạn.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Ứng dụng cần quyền nhận dạng giọng nói để chuyển âm thanh thành văn bản đặt xe.</string>
 
     <!-- Quyền Vị trí (Foreground & Background) -->
 	<key>NSLocationWhenInUseUsageDescription</key>
