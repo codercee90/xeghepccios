@@ -10,10 +10,10 @@ workflows:
         distribution_type: app_store
         bundle_identifier: cc.xeghep.www.ios
       vars:
-        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
+        XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
       groups:
-        - GoogleServicesPlist
+        - ios_config
       node: 24
       xcode: latest
     scripts:
@@ -33,7 +33,7 @@ workflows:
       - name: Build ipa for App Store
         script: |
           xcode-project build-ipa \
-            --workspace "$XCODE_WORKSPACE" \
+            --project "$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME"
     artifacts:
       - build/ios/ipa/*.ipa
