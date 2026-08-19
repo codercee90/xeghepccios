@@ -8,7 +8,7 @@ workflows:
     environment:
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: cc.xeghep.www.ios # Thay bằng Bundle ID chính xác của bạn
+        bundle_identifier: cc.xeghep.www.ios
       vars:
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
@@ -39,5 +39,5 @@ workflows:
       - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
-        auth: integration # Sử dụng API Key đã lưu trong Codemagic
+        auth: integration
         submit_to_testflight: true
