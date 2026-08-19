@@ -37,6 +37,7 @@ jobs:
       # 2. XÓA BỘ NHỚ TẠM XCODE (Đặt ở đây)
       - name: Clean Xcode DerivedData & Cache
         run: |
+          rm -rf ios/App/build
           rm -rf ~/Library/Developer/Xcode/DerivedData/*
           rm -rf ios/App/App.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
