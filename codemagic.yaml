@@ -35,7 +35,7 @@ workflows:
           agvtool new-version -all $(($BUILD_NUMBER + 1))
       - name: Set up code signing settings on Xcode project
         script: |
-          xcode-project use-profiles --exact-match
+          xcode-project use-profiles
       - name: Build ipa for App Store
         script: |
           xcode-project build-ipa \
