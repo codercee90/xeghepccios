@@ -12,9 +12,10 @@ workflows:
       vars:
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
-      node: 24
+      groups:
+        - GoogleServicesPlist
+      node: 20
       xcode: latest
-      cocoapods: default
     scripts:
       - name: Install dependencies
         script: |
@@ -23,9 +24,9 @@ workflows:
         script: |
           npm run build
           npx cap sync ios
-      - name: CocoaPods Installation
+      - name: Decode and inject GoogleService-Info.plist
         script: |
-          cd ios/App && pod install
+          echo $GOOGLE_SERVICES_PLIST | base64 --decode > ios/App/App/GoogleService-Info.plist
       - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles
