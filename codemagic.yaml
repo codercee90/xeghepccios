@@ -31,10 +31,11 @@ workflows:
         script: |
           # Tự động tăng Build Number theo lượt build trên Codemagic
           cd ios/App
+          agvtool new-marketing-version "3.0"
           agvtool new-version -all $(($BUILD_NUMBER + 1))
       - name: Set up code signing settings on Xcode project
         script: |
-          xcode-project use-profiles
+          xcode-project use-profiles --exact-match
       - name: Build ipa for App Store
         script: |
           xcode-project build-ipa \
