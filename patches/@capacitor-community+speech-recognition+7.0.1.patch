@@ -1,9 +1,9 @@
 diff --git a/node_modules/@capacitor-community/speech-recognition/Package.swift b/node_modules/@capacitor-community/speech-recognition/Package.swift
 new file mode 100644
-index 0000000..ec69b1a
+index 0000000..70beb0d
 --- /dev/null
 +++ b/node_modules/@capacitor-community/speech-recognition/Package.swift
-@@ -0,0 +1,33 @@
+@@ -0,0 +1,35 @@
 +// swift-tools-version: 5.9
 +import PackageDescription
 +
@@ -27,13 +27,15 @@ index 0000000..ec69b1a
 +                .product(name: "Cordova", package: "capacitor-swift-pm")
 +            ],
 +            path: "ios/Plugin",
-+            exclude: [],
 +            sources: [
 +                "SpeechRecognitionPlugin.m",
 +                "SpeechRecognitionPlugin.swift",
 +                "SpeechRecognition.swift"
 +            ],
-+            publicHeadersPath: "."
++            publicHeadersPath: ".",
++            cSettings: [
++                .headerSearchPath(".")
++            ]
 +        )
 +    ]
 +)
