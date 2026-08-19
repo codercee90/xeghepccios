@@ -1,0 +1,40 @@
+name: Update App Store Metadata & Screenshots Only
+
+on:
+  workflow_dispatch: # Kích hoạt thủ công bằng nút bấm trên GitHub Actions
+
+jobs:
+  update-metadata:
+    name: Upload Metadata to App Store
+    runs-on: macos-latest
+
+    env:
+      LC_ALL: en_US.UTF-8
+      LANG: en_US.UTF-8
+
+    steps:
+      # 1. Lấy code từ Repository (bao gồm thư mục fastlane/metadata & screenshots)
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 2. Setup Ruby để chạy Fastlane
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      # 3. Tạo file AuthKey .p8 từ GitHub Secrets
+      - name: Create App Store Connect API Key File
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}" > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
+
+      # 4. Chạy Fastlane lane update_metadata_only
+      - name: Run Fastlane Update Metadata
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_FILE_PATH: ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
+        run: |
+          bundle exec fastlane update_metadata_only
