@@ -9,13 +9,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     var window: UIWindow?
 
+    // Biến flag kiểm tra môi trường sideload (Giữ nguyên)
     private var isFirebaseAllowed = false
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         
-        // 1. Tự khởi tạo CAPBridgeViewController để load Web App Capacitor
+        // 1. Gán Delegate cho Notification Center NGAY ĐẦU HÀM
+        UNUserNotificationCenter.current().delegate = self
+
+        // 2. Tự khởi tạo CAPBridgeViewController để load Web App Capacitor
         let window = UIWindow(frame: UIScreen.main.bounds)
-        
         let customBgColor = UIColor(red: 242/255.0, green: 242/255.0, blue: 247/255.0, alpha: 1.0)
         window.backgroundColor = customBgColor
         
@@ -25,35 +28,46 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         window.makeKeyAndVisible()
         self.window = window
 
-        // 2. Gán Delegate cho Notification Center
-        UNUserNotificationCenter.current().delegate = self
-
-        // 3. Khởi tạo Firebase an toàn trên Background Thread
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            guard let self = self else { return }
-            
-            let allowed = self.checkIfFirebaseAllowed()
-            
-            DispatchQueue.main.async {
-                self.isFirebaseAllowed = allowed
-                if allowed {
-                    if FirebaseApp.app() == nil {
-                        FirebaseApp.configure()
-                    }
-                    Messaging.messaging().delegate = self
-                    UIApplication.shared.registerForRemoteNotifications()
-                    print("✅ [AppDelegate] Firebase & Push Notification đã sẵn sàng.")
-                } else {
-                    print("⚠️ [AppDelegate] Đã tắt Firebase (Môi trường không phù hợp hoặc ký cá nhân).")
-                }
+        // 3. Kiểm tra môi trường ĐỒNG BỘ (SYNC) để tránh mất sự kiện Cold Start
+        self.isFirebaseAllowed = self.checkIfFirebaseAllowed()
+        
+        if self.isFirebaseAllowed {
+            if FirebaseApp.app() == nil {
+                FirebaseApp.configure()
             }
+            Messaging.messaging().delegate = self
+            
+            // Xin quyền thông báo & Đăng ký APNs
+            self.requestNotificationPermission(application: application)
+            
+            print("✅ [AppDelegate] Firebase & Push Notification đã sẵn sàng.")
+        } else {
+            print("⚠️ [AppDelegate] Đã tắt Firebase (Môi trường không phù hợp hoặc ký cá nhân).")
         }
 
         return true
     }
 
-    // MARK: - Safe Environment Checkers (Bypasser)
+    // MARK: - Xin quyền thông báo (Bắt buộc cho iOS)
+    private func requestNotificationPermission(application: UIApplication) {
+        let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
+        UNUserNotificationCenter.current().requestAuthorization(options: authOptions) { granted, error in
+            if let error = error {
+                print("❌ Lỗi xin quyền Push: \(error.localizedDescription)")
+                return
+            }
+            
+            if granted {
+                DispatchQueue.main.async {
+                    application.registerForRemoteNotifications()
+                }
+            } else {
+                print("⚠️ Người dùng từ chối cấp quyền thông báo.")
+            }
+        }
+    }
 
+    // MARK: - Safe Environment Checkers (Bypasser) - GIỮ NGUYÊN LOGIC CỦA BẠN
     private func checkIfFirebaseAllowed() -> Bool {
         #if targetEnvironment(simulator)
         return false
@@ -81,8 +95,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
 
     // MARK: - Lifecycle & Badge Reset
-
-    // Xoá Badge icon app và xoá notification center khi người dùng MỞ APP
     func applicationDidBecomeActive(_ application: UIApplication) {
         UIApplication.shared.applicationIconBadgeNumber = 0
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
@@ -93,13 +105,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         if isFirebaseAllowed {
             Messaging.messaging().apnsToken = deviceToken
-            NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+            // Chuyển Token cho Capacitor Proxy phân phối
+            ApplicationDelegateProxy.shared.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
         }
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         if isFirebaseAllowed {
-            NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+            ApplicationDelegateProxy.shared.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
         }
     }
 
@@ -126,20 +139,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
     }
 
-    // BẮT BỤC PHẢI CÓ: Bắt sự kiện người dùng CLICK vào banner thông báo và đẩy xuống Capacitor JS
+    // BẮT SỰ KIỆN CLICK VÀO THÔNG BÁO (Tất cả trạng thái: Killed, Background, Foreground)
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         if isFirebaseAllowed {
-            // Đẩy event xuống Capacitor Bridge
-            NotificationCenter.default.post(name: Notification.Name("capacitorDidReceiveNotification"), object: response)
+            // Chuyển giao hoàn toàn cho Capacitor Proxy tự queue và bắn Event xuống JS
+            ApplicationDelegateProxy.shared.userNotificationCenter(center, didReceive: response) {
+                UIApplication.shared.applicationIconBadgeNumber = 0
+                completionHandler()
+            }
+        } else {
+            completionHandler()
         }
-        
-        // Tự động xoá badge khi click vào thông báo
-        UIApplication.shared.applicationIconBadgeNumber = 0
-        completionHandler()
     }
 
     // MARK: - Universal Links & Deep Links
-
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
     }
