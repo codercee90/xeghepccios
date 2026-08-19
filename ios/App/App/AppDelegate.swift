@@ -13,15 +13,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         
-        // 1. Tự khởi tạo CAPBridgeViewController để load Web App Capacitor (Sửa triệt để màn hình đen)
+        // 1. Tự khởi tạo CAPBridgeViewController để load Web App Capacitor
         let window = UIWindow(frame: UIScreen.main.bounds)
         
-        // Đặt màu nền mặc định cho Window là #F2F2F7 (hoặc systemGroupedBackground)
         let customBgColor = UIColor(red: 242/255.0, green: 242/255.0, blue: 247/255.0, alpha: 1.0)
         window.backgroundColor = customBgColor
         
         let bridgeVC = CAPBridgeViewController()
-        bridgeVC.view.backgroundColor = customBgColor // Đảm bảo view gốc của WebView không bị màu trắng chớp lên
+        bridgeVC.view.backgroundColor = customBgColor
         window.rootViewController = bridgeVC
         window.makeKeyAndVisible()
         self.window = window
@@ -53,7 +52,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         return true
     }
 
-    // MARK: - Safe Environment Checkers
+    // MARK: - Safe Environment Checkers (Bypasser)
 
     private func checkIfFirebaseAllowed() -> Bool {
         #if targetEnvironment(simulator)
@@ -81,6 +80,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         #endif
     }
 
+    // MARK: - Lifecycle & Badge Reset
+
+    // Xoá Badge icon app và xoá notification center khi người dùng MỞ APP
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        UIApplication.shared.applicationIconBadgeNumber = 0
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+    }
+
     // MARK: - Push Notifications Delegates
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
@@ -106,6 +113,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         )
     }
 
+    // Hiển thị thông báo khi App đang mở trên màn hình (Foreground)
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         if isFirebaseAllowed {
             if #available(iOS 14.0, *) {
@@ -116,6 +124,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         } else {
             completionHandler([])
         }
+    }
+
+    // BẮT BỤC PHẢI CÓ: Bắt sự kiện người dùng CLICK vào banner thông báo và đẩy xuống Capacitor JS
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        if isFirebaseAllowed {
+            // Đẩy event xuống Capacitor Bridge
+            NotificationCenter.default.post(name: Notification.Name.capacitorDidReceiveNotification, object: response)
+        }
+        
+        // Tự động xoá badge khi click vào thông báo
+        UIApplication.shared.applicationIconBadgeNumber = 0
+        completionHandler()
     }
 
     // MARK: - Universal Links & Deep Links
