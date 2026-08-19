@@ -27,6 +27,11 @@ workflows:
       - name: Decode and inject GoogleService-Info.plist
         script: |
           echo $GOOGLE_SERVICES_PLIST | base64 --decode > ios/App/App/GoogleService-Info.plist
+      - name: Increment build number
+        script: |
+          # Tự động tăng Build Number theo lượt build trên Codemagic
+          cd ios/App
+          agvtool new-version -all $(($BUILD_NUMBER + 1))
       - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles
