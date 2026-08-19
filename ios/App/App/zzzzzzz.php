@@ -1,143 +1,134 @@
-async function toggleSpeechRecognition() {
-    const micBtn = document.getElementById('micBtn');
-    const textarea = document.getElementById('passScheduleInput');
-
+// --- TÍCH HỢP TỰ ĐỘNG KHÔNG GIAN SPEECH RECOGNITION (VOICE TO TEXT) ---
+btnMic.addEventListener(\'click\', async () => {
     // 1. Kiểm tra môi trường Capacitor Native
     const isCapacitorNative = window.Capacitor && window.Capacitor.isNativePlatform();
 
-    function stopRecordingUI() {
+    const stopRecordingUI = () => {
         isRecording = false;
-        if (micBtn) micBtn.classList.remove('mic-recording');
-    }
+        btnMic.classList.remove(\'recording\');
+        msgInput.focus();
+    };
 
-    function startRecordingUI() {
+    const startRecordingUI = () => {
         isRecording = true;
-        if (micBtn) micBtn.classList.add('mic-recording');
-    }
-
-    function appendText(text) {
-        textarea.value = baseText + text;
-        if (typeof toggleClearBtnVisibility === 'function') {
-            toggleClearBtnVisibility(textarea);
-        }
-        textarea.scrollTop = textarea.scrollHeight;
-    }
-
-    // Lấy văn bản đang có sẵn
-    baseText = textarea.value;
-    if (baseText.length > 0 && !baseText.endsWith(' ')) {
-        baseText += ' ';
-    }
+        btnMic.classList.add(\'recording\');
+    };
 
     // ==========================================
-    // TRƯỜNG HỢP 1: CHẠY TRÊN CAPACITOR APP (NATIVE)
+    // KỊCH BẢN A: CHẠY TRÊN CAPACITOR APP (NATIVE)
     // ==========================================
     if (isCapacitorNative) {
         const { SpeechRecognition } = window.Capacitor.Plugins;
 
         if (!SpeechRecognition) {
-            alert('Chưa cài đặt plugin SpeechRecognition trên App!');
-            return;
+            return alert(\'Chưa đăng ký plugin SpeechRecognition trên Native!\');
         }
 
-        // Nếu đang ghi âm -> Dừng lại
+        // 🛑 NẾU ĐANG GHI ÂM -> BẤM LẦN 2 ĐỂ TẮT
         if (isRecording) {
-            await SpeechRecognition.stop();
+            try {
+                await SpeechRecognition.stop();
+            } catch (e) {
+                console.error(\'Lỗi khi dừng Native Mic:\', e);
+            }
             stopRecordingUI();
+            console.log("🛑 Đã chủ động kết thúc tiến trình ghi âm Native.");
             return;
         }
 
+        // 🎤 NẾU ĐANG RẢNH -> BẤM ĐỂ BẮT ĐẦU GHI ÂM
         try {
-            // Kiểm tra và xin quyền
+            // Kiểm tra và xin quyền Native iOS/Android
             const hasPermission = await SpeechRecognition.hasPermission();
             if (!hasPermission.permission) {
                 const req = await SpeechRecognition.requestPermission();
                 if (!req.permission) {
-                    alert('Vui lòng cấp quyền Micro và Speech Recognition trong Cài đặt!');
-                    return;
+                    return alert(\'Vui lòng cấp quyền Micro và Speech Recognition trong Cài đặt!\');
                 }
             }
 
             startRecordingUI();
+            console.log("🎤 Hệ thống Native bắt đầu lắng nghe giọng nói...");
 
-            // Đăng ký lắng nghe sự kiện trả về dữ liệu nhận diện
+            // Lắng nghe dữ liệu trả về real-time
             SpeechRecognition.removeAllListeners();
-            SpeechRecognition.addListener('partialResults', (data) => {
+            SpeechRecognition.addListener(\'partialResults\', (data) => {
                 if (data.matches && data.matches.length > 0) {
-                    appendText(data.matches[0]);
+                    msgInput.value = data.matches[0];
                 }
             });
 
-            // Bắt đầu nhận diện giọng nói
+            // Kích hoạt ghi âm
             await SpeechRecognition.start({
-                language: 'vi-VN',
-                maxResults: 2,
-                prompt: 'Hãy nói yêu cầu đặt xe...',
+                language: \'vi-VN\',
+                maxResults: 1,
+                prompt: \'Hãy nói nội dung tin nhắn...\',
                 partialResults: true,
                 popup: false
             });
 
-        } catch (error) {
-            console.error('Lỗi Native Speech Recognition:', error);
+        } catch (err) {
+            console.error(\'Lỗi khởi tạo Native Speech Recognition:\', err);
             stopRecordingUI();
         }
         return;
     }
 
     // ==========================================
-    // TRƯỜNG HỢP 2: CHẠY TRÊN TRÌNH DUYỆT WEB (WEB API)
+    // KỊCH BẢN B: CHẠY TRÊN TRÌNH DUYỆT WEB (WEB API)
     // ==========================================
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return alert(\'Trình duyệt của bạn chưa hỗ trợ Voice to Text. Hãy dùng Google Chrome!\');
 
-    if (!SpeechRecognition) {
-        alert('Trình duyệt của bạn không hỗ trợ Micro voice. Hãy dùng Chrome hoặc Safari mới nhất!');
-        return;
-    }
-
+    // KỊCH BẢN 1: NẾU ĐANG GHI ÂM -> BẤM LẦN 2 ĐỂ ÉP KẾT THÚC TIẾN TRÌNH VÀ GIỮ CHỮ
     if (isRecording) {
-        if (recognition) recognition.stop();
+        if (recognition) {
+            recognition.stop(); 
+        }
         stopRecordingUI();
+        console.log("🛑 Đã chủ động kết thúc tiến trình ghi âm Web.");
         return;
     }
+
+    // KỊCH BẢN 2: NẾU ĐANG RẢNH -> BẤM ĐỂ BẮT ĐẦU GHI ÂM
+    recognition = new SpeechRecognition();
+    recognition.lang = \'vi-VN\';
+    recognition.interimResults = true; 
+    recognition.maxAlternatives = 1;
+
+    let finalTranscript = \'\';
 
     try {
-        recognition = new SpeechRecognition();
-        recognition.lang = 'vi-VN';
-        recognition.continuous = true;
-        recognition.interimResults = true;
-
-        recognition.onstart = function() {
-            startRecordingUI();
-        };
-
-        recognition.onresult = function(event) {
-            let interimTranscript = '';
-            let finalTranscript = '';
-
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) {
-                    finalTranscript += event.results[i][0].transcript;
-                } else {
-                    interimTranscript += event.results[i][0].transcript;
-                }
-            }
-
-            appendText(finalTranscript + interimTranscript);
-        };
-
-        recognition.onerror = function(event) {
-            console.warn('Speech recognition error:', event.error);
-            stopRecordingUI();
-        };
-
-        recognition.onend = function() {
-            stopRecordingUI();
-        };
-
         recognition.start();
-
-    } catch (e) {
-        console.error(e);
-        stopRecordingUI();
+        startRecordingUI();
+        console.log("🎤 Hệ thống Web bắt đầu lắng nghe giọng nói...");
+    } catch (err) {
+        console.error(\'Không thể kích hoạt phần cứng Mic:\', err);
     }
-}
+
+    // 🌟 XỬ LÝ NHẬN DIỆN THÔNG MINH REAL-TIME
+    recognition.onresult = (event) => {
+        let interimTranscript = \'\';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+                finalTranscript += event.results[i][0].transcript;
+            } else {
+                interimTranscript += event.results[i][0].transcript;
+            }
+        }
+
+        msgInput.value = finalTranscript || interimTranscript;
+    };
+
+    // Bắt lỗi hệ thống
+    recognition.onerror = (err) => {
+        console.log(\'Hệ thống Mic gặp thông báo:\', err.error);
+    };
+
+    // Khi tiến trình kết thúc
+    recognition.onend = () => {
+        stopRecordingUI();
+        console.log("🔄 Tiến trình ghi âm đã được giải phóng sạch sẽ.");
+    };
+});
