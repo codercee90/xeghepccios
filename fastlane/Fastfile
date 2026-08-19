@@ -1,0 +1,23 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Chỉ cập nhật Metadata và Screenshots lên App Store Connect"
+  lane :update_metadata_only do
+    # Tải cấu hình API Key từ môi trường
+    api_key = app_store_connect_api_key(
+      key_id: ENV["APP_STORE_CONNECT_KEY_ID"],
+      issuer_id: ENV["APP_STORE_CONNECT_ISSUER_ID"],
+      key_filepath: ENV["APP_STORE_CONNECT_KEY_FILE_PATH"]
+    )
+
+    # Lệnh đẩy metadata và screenshots
+    upload_to_app_store(
+      api_key: api_key,
+      skip_binary_upload: true, # Bắt buộc: Bỏ qua upload IPA
+      skip_metadata: false,      # Cập nhật metadata
+      skip_screenshots: false,   # Cập nhật screenshots
+      force: true,               # Bỏ qua các câu hỏi xác nhận
+      submit_for_review: true   # Đặt true nếu muốn bấm gửi duyệt luôn sau khi upload
+    )
+  end
+end
