@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="vi" translate="no" class="notranslate">
 <head>
@@ -4599,9 +4598,53 @@ if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App
         if (state.isActive) {
             console.log('📱 App Native vừa active lại! Tự động kiểm tra để cập nhật vị trí...');
             initializeAllServices();
+			/*const status = await Network.getStatus();
+            if (status.connected) {
+                window.location.reload(); // Tự động reload lại trang
+            }*/
         }
     });
 }
+
+// Đọc đối tượng Network từ Capacitor
+const { Network } = window.Capacitor.Plugins;
+
+async function handleInitialNetworkCheck() {
+    if (!Network) return;
+
+    // 1. Kiểm tra trạng thái mạng hiện tại
+    const status = await Network.getStatus();
+
+    /*if (!status.connected) {
+        // Nếu chưa có mạng (do chưa cấp quyền WLAN hoặc chưa bật Wi-Fi)
+        //showOfflineUI(true);
+    } else {
+        // Đã có mạng -> Cho phép tải dữ liệu
+        //update3Block();
+    }*/
+
+    // 2. LẮNG NGHE SỰ KIỆN: Kích hoạt TỰ ĐỘNG ngay khi vừa bấm "Cho phép WLAN"
+    Network.addListener('networkStatusChange', (status) => {
+        console.log("Trạng thái mạng thay đổi:", status.connected);
+        
+        if (status.connected) {
+            //showOfflineUI(false);
+            
+            // Tự động load lại trang index hoặc gọi lại API
+            // Cách 1: Reload lại toàn bộ trang index local
+            //window.location.reload(); 
+
+            // Cách 2 (Tốt hơn): Chỉ gọi lại hàm nạp dữ liệu API để không bị giật trang
+            // loadDataFromServer(); 
+			update3Block();
+        }/* else {
+            showOfflineUI(true);
+        }*/
+    });
+}
+
+// Chạy hàm kiểm tra ngay khi DOM sẵn sàng
+document.addEventListener('DOMContentLoaded', handleInitialNetworkCheck);
 
 // Tự động chạy khi DOM sẵn sàng
 document.addEventListener('DOMContentLoaded', () => {
