@@ -3166,6 +3166,21 @@ function stopAutoUpdate() {
 let globalAjaxAbortController = null;
 
 function sendAjaxRequest(url, method = 'GET', doingAlias=null, data = null, callback = null, silent=false, modal=false, callbackFailed=null, btn=null, loadIframe=false, dontClearTimeoutAuto=false) {
+	// 🛡️ CHỐT CHẶN MẤT MẠNG: Dừng ngay lập tức, không thao tác gì với DOM/Nút/Loading
+    if (!navigator.onLine) {
+        if (silent === false) {
+            if (modal === true) {
+                AppModal.open({
+                    isImage: false,
+                    content: `<i class="fa fa-exclamation-circle"></i> Không có kết nối Internet`
+                });
+            } else {
+                showAppNotification('error', '<i class="fa fa-exclamation-circle"></i> Không có kết nối Internet');
+            }
+        }
+        return; // Thoát ngay, giữ nguyên hiện trạng giao diện
+    }
+	
     // Tách riêng trạng thái của từng request/button bằng biến cục bộ
     let originalHTML = null;
     let isButtonDisabled = false;
