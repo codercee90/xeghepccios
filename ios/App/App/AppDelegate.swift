@@ -160,11 +160,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 // 🚀 CLASS BẢO HIỂM: TỰ ĐỘNG CẤP QUYỀN MICROPHONE MÀ KHÔNG GÂY LỖI PENDING HTTP
 // =========================================================================
 class CustomBridgeViewController: CAPBridgeViewController, WKUIDelegate {
-    
+
     private weak var originalUIDelegate: WKUIDelegate?
 
-    override func webViewDidLoad(_ webView: WKWebView) {
-        super.webViewDidLoad()
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
         // Lưu lại Delegate gốc của Capacitor trước khi gán
         self.originalUIDelegate = self.webView?.uiDelegate
         self.webView?.uiDelegate = self
@@ -176,11 +177,9 @@ class CustomBridgeViewController: CAPBridgeViewController, WKUIDelegate {
                  initiatedByFrame frame: WKFrameInfo,
                  type: WKMediaCaptureType,
                  decisionHandler: @escaping (WKPermissionDecision) -> Void) {
-        
         if type == .microphone {
-            decisionHandler(.grant) // Tự động duyệt Microphone
+            decisionHandler(.grant)
         } else {
-            // Nhường lại các quyền khác cho Capacitor xử lý
             if let delegate = originalUIDelegate, delegate.responds(to: #selector(webView(_:requestMediaCapturePermissionFor:initiatedByFrame:type:decisionHandler:))) {
                 delegate.webView?(webView, requestMediaCapturePermissionFor: origin, initiatedByFrame: frame, type: type, decisionHandler: decisionHandler)
             } else {
@@ -189,14 +188,17 @@ class CustomBridgeViewController: CAPBridgeViewController, WKUIDelegate {
         }
     }
 
-    // Forward tất cả các sự kiện UI khác (alert, confirm, popups) về cho Delegate gốc của Capacitor
     override func responds(to aSelector: Selector!) -> Bool {
-        if super.responds(to: aSelector) { return true }
+        if super.responds(to: aSelector) {
+            return true
+        }
         return originalUIDelegate?.responds(to: aSelector) ?? false
     }
 
     override func forwardingTarget(for aSelector: Selector!) -> Any? {
-        if super.responds(to: aSelector) { return self }
+        if super.responds(to: aSelector) {
+            return self
+        }
         return originalUIDelegate
     }
 }
