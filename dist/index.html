@@ -3934,6 +3934,9 @@ function scanAndExecuteNotificationRedisOld() {
         });
 }
 
+// Khai báo Controller toàn cục để có thể hủy request trước đó
+let notificationAbortController = null;
+
 function scanAndExecuteNotificationRedis() {
     // Xóa timer cũ nếu có để tránh chạy đúp khi re-run
     clearTimeout(foregroundScanner);
@@ -3944,17 +3947,38 @@ function scanAndExecuteNotificationRedis() {
     }
 
     // =========================================================================
+    // 🛡️ CHỐT CHẶN CHỐNG PENDING: HỦY REQUEST CŨ & TẠO TIMEOUT MỚI
+    // =========================================================================
+    if (notificationAbortController) {
+        notificationAbortController.abort(); // Hủy request trước nếu nó vẫn đang Pending
+    }
+    
+    notificationAbortController = new AbortController();
+    const requestSignal = notificationAbortController.signal;
+
+    // Tự động ngắt kết nối sau 8 giây nếu Server không phản hồi
+    const fetchTimeout = setTimeout(() => {
+        if (notificationAbortController) {
+            notificationAbortController.abort();
+        }
+    }, 8000);
+
+    // =========================================================================
     // 🔥 BỐC DATA TẬP TRUNG TỪ REDIS QUA API HTTP (CHỐT CHẶN CHÍNH)
     // =========================================================================
     fetch(`https://www.xeghep.cc/notifi/send/get-noti-redis.php?userID=${currentUserID}`, {
         method: 'GET',
         credentials: 'include',
+        signal: requestSignal, // Thêm signal bảo vệ chống treo request
         headers: {
             'X-Requested-With': 'XMLHttpRequest',
             'Content-Type': 'application/json'
         }
     })
-    .then(res => res.json())
+    .then(res => {
+        clearTimeout(fetchTimeout); // Xóa Timeout khi có phản hồi từ server
+        return res.json();
+    })
     .then(data => {
         let hasNewFromRedis = false;
         let currentScanDelay = SCAN_INTERVALS.NORMAL; 
@@ -4065,7 +4089,13 @@ function scanAndExecuteNotificationRedis() {
         foregroundScanner = setTimeout(scanAndExecuteNotificationRedis, currentScanDelay);
 
     }).catch(err => {
-        console.error("Lỗi kết nối API Redis:", err);
+        clearTimeout(fetchTimeout); // Dọn dẹp timer nếu gặp lỗi
+        
+        // Nếu lỗi do bị Abort chủ động thì không cần log error gây nhiễu Console
+        if (err.name !== 'AbortError') {
+            console.error("Lỗi kết nối API Redis:", err);
+        }
+        
         foregroundScanner = setTimeout(scanAndExecuteNotificationRedis, SCAN_INTERVALS.NORMAL);
     });
 }
