@@ -94,12 +94,5 @@
 		<integer>1</integer>
 	</array>
 
-	<!-- 8. CẤU HÌNH MẠNG -->
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
-	</dict>
-
 </dict>
 </plist>
