@@ -3033,6 +3033,9 @@ function showAppNotification(type, message, delayTime=4000) {
 }
 
 
+// Khai báo Controller toàn cục cho vòng lặp AutoUpdate
+let autoUpdateAbortController = null;
+
 function startAutoUpdate(divDisplayID=null, title=null, setDoingAlias=null, page=null, params=null) {
 	if (typeof loopAutoUpdate !== "undefined") {
 		clearTimeout(loopAutoUpdate);
@@ -3097,6 +3100,14 @@ function startAutoUpdate(divDisplayID=null, title=null, setDoingAlias=null, page
 	
 	if(params !== null) doingUrlAutoUpdate += '&'+ params;
 	
+	// =========================================================================
+	// 🛡️ CHỐT CHẶN CHỐNG PENDING: HỦY REQUEST CŨ TRƯỚC KHI GỌI MỚI
+	// =========================================================================
+	if (autoUpdateAbortController) {
+		autoUpdateAbortController.abort();
+	}
+	autoUpdateAbortController = new AbortController();
+
 	// Gọi hàm sendAjaxRequest có sẵn của bạn
 	sendAjaxRequest(doingUrlAutoUpdate, 'GET', doingAlias, null, function(response) {
 		
@@ -3125,11 +3136,15 @@ function startAutoUpdate(divDisplayID=null, title=null, setDoingAlias=null, page
 		} else {
 			console.error(`Không tìm thấy thẻ div [page-${divDisplayID}]`);
 		}
+
+		// 🔥 CHUYỂN TIMEOUT VÀO ĐÂY: Chỉ lên lịch chạy lượt tiếp theo KHI REQUEST NÀY ĐÃ HOÀN THÀNH
+		if (params === null) {
+			loopAutoUpdate = setTimeout(startAutoUpdate, 2000);
+		}
 		
 	}, (pageParam !== null ? false : true));//silent
-	if(params === null){
-		loopAutoUpdate = setTimeout(startAutoUpdate, 2000);
-	}
+
+	// Note: Đã chuyển loopAutoUpdate vào bên trong callback thành công/thất bại của sendAjaxRequest để tránh đùn request
 }
 
 function stopAutoUpdate() {
@@ -3147,6 +3162,9 @@ function stopAutoUpdate() {
  * @param {Object|FormData} data - Dữ liệu gửi đi (Object thông thường cho GET/POST, hoặc FormData nếu có file)
  * @param {Function} callback - Hàm xử lý dữ liệu sau khi server phản hồi thành công
  */
+// Khai báo Controller toàn cục cho các request Ajax thông thường
+let globalAjaxAbortController = null;
+
 function sendAjaxRequest(url, method = 'GET', doingAlias=null, data = null, callback = null, silent=false, modal=false, callbackFailed=null, btn=null, loadIframe=false, dontClearTimeoutAuto=false) {
     // Tách riêng trạng thái của từng request/button bằng biến cục bộ
     let originalHTML = null;
@@ -3181,9 +3199,19 @@ function sendAjaxRequest(url, method = 'GET', doingAlias=null, data = null, call
 	}
 
     method = method.toUpperCase();
+
+    // =========================================================================
+    // 🛡️ CHỐT CHẶN CHỐNG PENDING: BỔ SUNG TIMEOUT & ABORT CONTROLLER
+    // =========================================================================
+    const ajaxController = new AbortController();
+    const ajaxTimeout = setTimeout(() => {
+        ajaxController.abort(); // Tự ngắt request nếu quá 10 giây không phản hồi
+    }, 10000);
+
     let options = {
         method: method,
-        credentials: 'include' // Giữ nguyên cấu hình truyền nhận cookie chéo sân cho App bọc
+        credentials: 'include', // Giữ nguyên cấu hình truyền nhận cookie chéo sân cho App bọc
+        signal: ajaxController.signal // Gán signal bảo vệ chống treo connection
     };
 
     // 1. XỬ LÝ CHO PHƯƠNG THỨC GET
@@ -3215,6 +3243,7 @@ function sendAjaxRequest(url, method = 'GET', doingAlias=null, data = null, call
     // Thực thi Fetch API
     fetch(url, options)
         .then(response => {
+            clearTimeout(ajaxTimeout); // Xóa Timeout khi server trả về tín hiệu thành công
             if (!response.ok) {
                 throw new Error(`Mạng lỗi: ${response.status}`);
             }
@@ -3315,7 +3344,13 @@ function sendAjaxRequest(url, method = 'GET', doingAlias=null, data = null, call
             }
         })
         .catch(error => {
-            console.error('[AJAX Error]:', error);
+            clearTimeout(ajaxTimeout); // Dọn dẹp timer nếu gặp lỗi
+
+            // Ẩn log lỗi AbortError nếu do hệ thống chủ động ngắt
+            if (error.name !== 'AbortError') {
+                console.error('[AJAX Error]:', error);
+            }
+
             // Thay thế alert() thô lỗ bằng việc hiện thông báo lỗi mạng màu đỏ ngay trên Bottom Bar
 			if(silent === false){
 				if(modal === true){
@@ -3338,6 +3373,14 @@ function sendAjaxRequest(url, method = 'GET', doingAlias=null, data = null, call
 					startAutoUpdate();
 				}
 			}
+
+            // 🔥 CHỐT CHẶN BẢO HIỂM: Nếu bị lỗi/timeout mà có callback, vẫn gọi callback với chuỗi rỗng 
+            // để kích hoạt lượt chạy tiếp theo cho startAutoUpdate(), tránh bị dừng vòng lặp
+            if (typeof callback === 'function') {
+                callback('');
+            } else if (typeof callbackFailed === 'function') {
+                callbackFailed('');
+            }
         });
 }
 
