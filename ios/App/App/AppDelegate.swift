@@ -3,10 +3,9 @@ import Capacitor
 import FirebaseCore
 import FirebaseMessaging
 import UserNotifications
-import WebKit
 
 @UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate, WKUIDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
 
     var window: UIWindow?
 
@@ -25,10 +24,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         let bridgeVC = CAPBridgeViewController()
         bridgeVC.view.backgroundColor = customBgColor
-        
-        // Thêm UIDelegate để lắng nghe và cấp quyền media cho WKWebView
-        bridgeVC.webView?.uiDelegate = self
-        
         window.rootViewController = bridgeVC
         window.makeKeyAndVisible()
         self.window = window
@@ -156,19 +151,5 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
-    }
-
-    // MARK: - WKUIDelegate (Tự động cấp quyền Microphone cho Webview & Iframe)
-    @available(iOS 15.0, *)
-    func webView(_ webView: WKWebView,
-                 requestMediaCapturePermissionFor origin: WKSecurityOrigin,
-                 initiatedByFrame frame: WKFrameInfo,
-                 type: WKMediaCaptureType,
-                 decisionHandler: @escaping (WKPermissionDecision) -> Void) {
-        if type == .microphone {
-            decisionHandler(.grant)
-        } else {
-            decisionHandler(.prompt)
-        }
     }
 }
