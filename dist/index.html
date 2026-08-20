@@ -847,48 +847,111 @@
 		let userRef = null;
 		let qrcodeInvite = null;
 		
-		// Hàm kiểm tra môi trường Capacitor
+		// ==========================================
+		// 1. KIỂM TRA MÔI TRƯỜNG CAPACITOR NATIVE
+		// ==========================================
 		function isCapacitorEnv() {
 			return typeof window !== 'undefined' && 
-				   (!!window.Capacitor || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()));
+				   window.Capacitor && 
+				   window.Capacitor.isNativePlatform && 
+				   window.Capacitor.isNativePlatform();
+		}
+
+		// ==========================================
+		// 2. HÀM TỰ ĐỘNG SYNC COOKIE TỪ PHP VỀ LOCALSTORAGE
+		// ==========================================
+		async function syncNativeCookiesToStorage() {
+			if (isCapacitorEnv() && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorCookies) {
+				try {
+					const { CapacitorCookies } = window.Capacitor.Plugins;
+					const cookies = await CapacitorCookies.getCookies({ url: 'https://www.xeghep.cc' });
+					
+					// Lặp qua tất cả cookie PHP trả về và lưu vào LocalStorage
+					for (const [key, value] of Object.entries(cookies)) {
+						localStorage.setItem('cap_cookie_' + key, value);
+					}
+				} catch (e) {
+					console.error("Lỗi sync cookie:", e);
+				}
+			}
+		}
+
+		// Hook tự động Sync Cookie mỗi khi có request AJAX/Fetch thành công
+		if (typeof $ !== 'undefined') {
+			$(document).ajaxComplete(function() {
+				syncNativeCookiesToStorage();
+			});
+		}
+		if (isCapacitorEnv()) {
+			const originalFetch = window.fetch;
+			window.fetch = async function(...args) {
+				const response = await originalFetch(...args);
+				syncNativeCookiesToStorage();
+				return response;
+			};
+		}
+
+		// Sync ngay 1 lần khi bắt đầu tải trang
+		syncNativeCookiesToStorage();
+
+		// ==========================================
+		// 3. BỘ 3 HÀM XỬ LÝ COOKIE ĐỒNG BỘ (GET / SET / ERASE)
+		// ==========================================
+		function getCookie(name) {
+			if (isCapacitorEnv()) {
+				// Đọc tức thì từ LocalStorage (bao gồm cả Cookie từ PHP đã sync)
+				return localStorage.getItem('cap_cookie_' + name) || null;
+			} else {
+				// Trình duyệt Web thông thường
+				var nameEQ = name + "=";
+				var ca = document.cookie.split(';');
+				for (var i = 0; i < ca.length; i++) {
+					var c = ca[i];
+					while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+					if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+				}
+				return null;
+			}
 		}
 
 		function setCookie(name, value, days) {
-			var expires = "";
-			if (days) {
-				var date = new Date();
-				date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-				expires = "; expires=" + date.toUTCString();
+			var strValue = String(value || "");
+			if (isCapacitorEnv()) {
+				localStorage.setItem('cap_cookie_' + name, strValue);
+				if (window.Capacitor?.Plugins?.CapacitorCookies) {
+					let expiresDate = new Date();
+					expiresDate.setTime(expiresDate.getTime() + ((days || 365) * 24 * 60 * 60 * 1000));
+					window.Capacitor.Plugins.CapacitorCookies.setCookie({
+						url: 'https://www.xeghep.cc',
+						key: name,
+						value: strValue,
+						expires: expiresDate.toUTCString(),
+						path: '/'
+					}).catch(e => console.error(e));
+				}
+			} else {
+				var expires = "";
+				if (days) {
+					var date = new Date();
+					date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+					expires = "; expires=" + date.toUTCString();
+				}
+				document.cookie = name + "=" + strValue + expires + "; path=/; domain=.xeghep.cc; SameSite=Lax; Secure";
 			}
-			
-			// Cấu hình linh hoạt theo môi trường
-			var isCap = isCapacitorEnv();
-			//isCap = false;
-			var domainStr = isCap ? "" : "; domain=.xeghep.cc";
-			var sameSiteStr = isCap ? "; SameSite=None" : "; SameSite=Lax";
-			
-			document.cookie = name + "=" + (value || "") + expires + "; path=/" + domainStr + sameSiteStr + "; Secure";
-		}
-
-		function getCookie(name) {
-			var nameEQ = name + "=";
-			var ca = document.cookie.split(';');
-			for (var i = 0; i < ca.length; i++) {
-				var c = ca[i];
-				while (c.charAt(0) == ' ') c = c.substring(1, c.length);
-				if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
-			}
-			return null;
 		}
 
 		function eraseCookie(name) {
-			var isCap = isCapacitorEnv();
-			//isCap = false;
-			var domainStr = isCap ? "" : "; domain=.xeghep.cc";
-			var sameSiteStr = isCap ? "; SameSite=None" : "; SameSite=Lax";
-			
-			// Xóa cookie bằng cách set thời gian hết hạn về quá khứ
-			document.cookie = name + '=; Expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/' + domainStr + sameSiteStr + '; Secure';
+			if (isCapacitorEnv()) {
+				localStorage.removeItem('cap_cookie_' + name);
+				if (window.Capacitor?.Plugins?.CapacitorCookies) {
+					window.Capacitor.Plugins.CapacitorCookies.deleteCookie({
+						url: 'https://www.xeghep.cc',
+						key: name
+					}).catch(e => console.error(e));
+				}
+			} else {
+				document.cookie = name + '=; Expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/; domain=.xeghep.cc; SameSite=Lax; Secure';
+			}
 		}
 
 		document.addEventListener('DOMContentLoaded', function () {
