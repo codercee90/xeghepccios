@@ -22,6 +22,9 @@
     },
     "FirebaseMessaging": {
       "presentationOptions": ["badge", "sound", "alert"]
+    },
+    "CapacitorCookies": {
+      "enabled": true
     }
   },
   "ios": {
