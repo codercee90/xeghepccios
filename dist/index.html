@@ -3996,6 +3996,11 @@ function scanAndExecuteNotificationRedisOld() {
 let notificationAbortController = null;
 
 function scanAndExecuteNotificationRedis() {
+	// 🛡️ CHỐT CHẶN MẤT MẠNG: Dừng ngay lập tức, không thao tác gì với DOM/Nút/Loading
+    if (!navigator.onLine) {
+        showAppNotification('error', '<i class="fa fa-exclamation-circle"></i> Không có kết nối Internet');
+        return; // Thoát ngay, giữ nguyên hiện trạng giao diện
+    }
     // Xóa timer cũ nếu có để tránh chạy đúp khi re-run
     clearTimeout(foregroundScanner);
 
