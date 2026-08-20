@@ -27,5 +27,10 @@
   "ios": {
     "contentInset": "always",
     "allowsLinkPreview": false
+  },
+  "server": {
+    "androidScheme": "https",
+    "iosScheme": "https",
+    "hostname": "www.xeghep.cc"
   }
 }
