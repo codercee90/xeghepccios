@@ -101,11 +101,5 @@
 		<true/>
 	</dict>
 
-	<key>WKAppBoundDomains</key>
-	<array>
-		<string>ios.xeghep.cc</string>
-		<string>www.xeghep.cc</string>
-	</array>
-
 </dict>
 </plist>
