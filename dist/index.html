@@ -1758,7 +1758,7 @@
         <div class="chat-modal-container" id="chatModalContainer">
             <span class="chat-modal-close-btn" id="closeChatBtn">&times;</span>
             
-            <iframe class="chat-iframe" id="chatWindow" src="" allow="microphone; autoplay"></iframe>
+            <iframe class="chat-iframe" id="chatWindow" src="" allow="microphone; camera; geolocation; autoplay;"></iframe>
         </div>
     </div>
 
@@ -4178,7 +4178,7 @@ newIframe = document.createElement('iframe');
 newIframe.id = 'chatWindow';
 newIframe.src = '';
 newIframe.classList.add('chat-iframe');
-newIframe.setAttribute('allow', 'microphone *; autoplay *');
+newIframe.setAttribute('allow', 'microphone *; camera *; geolocation *; autoplay *');
 
 // Chèn lại vào cái khung chứa trong Modal của bạn
 document.getElementById('chatModalContainer').appendChild(newIframe);
