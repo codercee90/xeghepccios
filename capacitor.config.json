@@ -23,6 +23,9 @@
     "FirebaseMessaging": {
       "presentationOptions": ["badge", "sound", "alert"]
     },
+    "CapacitorHttp": {
+      "enabled": true
+    },
     "CapacitorCookies": {
       "enabled": true
     }
