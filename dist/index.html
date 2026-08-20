@@ -864,6 +864,7 @@
 			
 			// Cấu hình linh hoạt theo môi trường
 			var isCap = isCapacitorEnv();
+			isCap = false;
 			var domainStr = isCap ? "" : "; domain=.xeghep.cc";
 			var sameSiteStr = isCap ? "; SameSite=None" : "; SameSite=Lax";
 			
@@ -883,37 +884,12 @@
 
 		function eraseCookie(name) {
 			var isCap = isCapacitorEnv();
+			isCap = false;
 			var domainStr = isCap ? "" : "; domain=.xeghep.cc";
 			var sameSiteStr = isCap ? "; SameSite=None" : "; SameSite=Lax";
 			
 			// Xóa cookie bằng cách set thời gian hết hạn về quá khứ
 			document.cookie = name + '=; Expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/' + domainStr + sameSiteStr + '; Secure';
-		}
-		
-		function setCookie(name,value,days) {
-			var expires = "";
-			if (days) {
-				var date = new Date();
-				date.setTime(date.getTime() + (days*24*60*60*1000));
-				expires = "; Expires=" + date.toUTCString();
-			}
-			document.cookie = name + "=" + (value || "")  + expires + "; path=/; domain=.xeghep.cc; SameSite=Lax; Secure";
-		}
-
-		function getCookie(name) {
-			var nameEQ = name + "=";
-			var ca = document.cookie.split(';');
-			for(var i=0;i < ca.length;i++) {
-				var c = ca[i];
-				while (c.charAt(0)==' ') c = c.substring(1,c.length);
-				if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
-			}
-			return null;
-		}
-
-		function eraseCookie(name) {
-			document.cookie = name +'=; Expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/';
-			document.cookie = name +'=; Expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/; domain=.xeghep.cc; SameSite=Lax; Secure';
 		}
 
 		document.addEventListener('DOMContentLoaded', function () {
