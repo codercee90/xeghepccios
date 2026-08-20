@@ -163,7 +163,7 @@ class CustomBridgeViewController: CAPBridgeViewController, WKUIDelegate {
     
     private weak var originalUIDelegate: WKUIDelegate?
 
-    override func webViewDidLoad() {
+    override func webViewDidLoad(_ webView: WKWebView) {
         super.webViewDidLoad()
         // Lưu lại Delegate gốc của Capacitor trước khi gán
         self.originalUIDelegate = self.webView?.uiDelegate
