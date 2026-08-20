@@ -4598,53 +4598,46 @@ if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App
         if (state.isActive) {
             console.log('📱 App Native vừa active lại! Tự động kiểm tra để cập nhật vị trí...');
             initializeAllServices();
-			/*const status = await Network.getStatus();
-            if (status.connected) {
-                window.location.reload(); // Tự động reload lại trang
-            }*/
         }
     });
 }
 
-// Đọc đối tượng Network từ Capacitor
-const { Network } = window.Capacitor.Plugins;
+const { App, Network } = window.Capacitor.Plugins;
+let isOffline = false; // Biến ghi nhớ trạng thái
 
-async function handleInitialNetworkCheck() {
+// Hàm xử lý chung
+async function checkNetworkAndReload() {
     if (!Network) return;
-
-    // 1. Kiểm tra trạng thái mạng hiện tại
     const status = await Network.getStatus();
 
-    /*if (!status.connected) {
-        // Nếu chưa có mạng (do chưa cấp quyền WLAN hoặc chưa bật Wi-Fi)
+    if (!status.connected) {
+        isOffline = true; // Đang mất mạng -> Bật cờ
         //showOfflineUI(true);
     } else {
-        // Đã có mạng -> Cho phép tải dữ liệu
-        //update3Block();
-    }*/
-
-    // 2. LẮNG NGHE SỰ KIỆN: Kích hoạt TỰ ĐỘNG ngay khi vừa bấm "Cho phép WLAN"
-    Network.addListener('networkStatusChange', (status) => {
-        console.log("Trạng thái mạng thay đổi:", status.connected);
-        
-        if (status.connected) {
-            //showOfflineUI(false);
-            
-            // Tự động load lại trang index hoặc gọi lại API
-            // Cách 1: Reload lại toàn bộ trang index local
+        // CHỈ RELOAD NẾU TRƯỚC ĐÓ ĐANG Ở TRẠNG THÁI MẤT MẠNG
+        if (isOffline) {
+            isOffline = false;
             //window.location.reload(); 
-
-            // Cách 2 (Tốt hơn): Chỉ gọi lại hàm nạp dữ liệu API để không bị giật trang
-            // loadDataFromServer(); 
 			update3Block();
-        }/* else {
-            showOfflineUI(true);
-        }*/
-    });
+        } else {
+            //showOfflineUI(false);
+        }
+    }
 }
 
-// Chạy hàm kiểm tra ngay khi DOM sẵn sàng
-document.addEventListener('DOMContentLoaded', handleInitialNetworkCheck);
+// 1. Lắng nghe khi đổi mạng real-time
+if (Network) {
+    Network.addListener('networkStatusChange', checkNetworkAndReload);
+}
+
+// 2. Lắng nghe khi bật lại app từ app ẩn
+if (App) {
+    App.addListener('appStateChange', (state) => {
+        if (state.isActive) {
+            checkNetworkAndReload();
+        }
+    });
+}
 
 // Tự động chạy khi DOM sẵn sàng
 document.addEventListener('DOMContentLoaded', () => {
@@ -4652,6 +4645,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeAllServices();
     initTWAKeepAlive();
     enableBackgroundAudioKeepAlive();
+	checkNetworkAndReload();
 });
 
 // Lắng nghe tương tác đầu tiên của tài xế để unlock Audio Keep-Alive trên trình duyệt
