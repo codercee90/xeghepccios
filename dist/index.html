@@ -848,6 +848,48 @@
 		let userRef = null;
 		let qrcodeInvite = null;
 		
+		// Hàm kiểm tra môi trường Capacitor
+		function isCapacitorEnv() {
+			return typeof window !== 'undefined' && 
+				   (!!window.Capacitor || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()));
+		}
+
+		function setCookie(name, value, days) {
+			var expires = "";
+			if (days) {
+				var date = new Date();
+				date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+				expires = "; expires=" + date.toUTCString();
+			}
+			
+			// Cấu hình linh hoạt theo môi trường
+			var isCap = isCapacitorEnv();
+			var domainStr = isCap ? "" : "; domain=.xeghep.cc";
+			var sameSiteStr = isCap ? "; SameSite=None" : "; SameSite=Lax";
+			
+			document.cookie = name + "=" + (value || "") + expires + "; path=/" + domainStr + sameSiteStr + "; Secure";
+		}
+
+		function getCookie(name) {
+			var nameEQ = name + "=";
+			var ca = document.cookie.split(';');
+			for (var i = 0; i < ca.length; i++) {
+				var c = ca[i];
+				while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+				if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+			}
+			return null;
+		}
+
+		function eraseCookie(name) {
+			var isCap = isCapacitorEnv();
+			var domainStr = isCap ? "" : "; domain=.xeghep.cc";
+			var sameSiteStr = isCap ? "; SameSite=None" : "; SameSite=Lax";
+			
+			// Xóa cookie bằng cách set thời gian hết hạn về quá khứ
+			document.cookie = name + '=; Expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/' + domainStr + sameSiteStr + '; Secure';
+		}
+		
 		function setCookie(name,value,days) {
 			var expires = "";
 			if (days) {
@@ -977,13 +1019,13 @@
 <!-- Chèn thư viện Capacitor Core & Geolocation (Nếu chạy trên PWA/TWA nó sẽ tự bỏ qua không gây lỗi) -->
 <script src="https://cdn.jsdelivr.net/npm/@capacitor/core@latest/dist/capacitor.js"></script>
 
-<!--<script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
+<script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
 <script>
   // Khởi tạo vConsole để xem log ngay trên màn hình điện thoại
   if(fromApp === 'iosCapacitor'){
   var vConsole = new VConsole();
   }
-</script>-->
+</script>
 <!--<script>
   // Kiểm tra nếu trang đang chạy bên trong TWA
   if (document.referrer.includes('android-app://cc.xeghep.www.twa')) {
