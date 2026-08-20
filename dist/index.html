@@ -4163,6 +4163,7 @@ newIframe = document.createElement('iframe');
 newIframe.id = 'chatWindow';
 newIframe.src = '';
 newIframe.classList.add('chat-iframe');
+newIframe.setAttribute('allow', 'microphone *; autoplay *');
 
 // Chèn lại vào cái khung chứa trong Modal của bạn
 document.getElementById('chatModalContainer').appendChild(newIframe);
