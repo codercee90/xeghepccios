@@ -171,13 +171,14 @@ class CustomBridgeViewController: CAPBridgeViewController, WKUIDelegate {
         self.webView?.uiDelegate = self
     }
 
+    // 1. Cấp quyền Camera & Microphone (Code cũ của bạn)
     @available(iOS 15.0, *)
     func webView(_ webView: WKWebView,
                  requestMediaCapturePermissionFor origin: WKSecurityOrigin,
                  initiatedByFrame frame: WKFrameInfo,
                  type: WKMediaCaptureType,
                  decisionHandler: @escaping (WKPermissionDecision) -> Void) {
-        if type == .microphone {
+        if type == .microphone || type == .camera {
             decisionHandler(.grant)
         } else {
             if let delegate = originalUIDelegate, delegate.responds(to: #selector(webView(_:requestMediaCapturePermissionFor:initiatedByFrame:type:decisionHandler:))) {
@@ -186,6 +187,15 @@ class CustomBridgeViewController: CAPBridgeViewController, WKUIDelegate {
                 decisionHandler(.prompt)
             }
         }
+    }
+
+    // 2. BỔ SUNG: Cấp quyền Vị trí / Cảm biến thiết bị cho WebView & Iframe (iOS 15+)
+    @available(iOS 15.0, *)
+    func webView(_ webView: WKWebView,
+                 requestDeviceOrientationAndMotionPermissionFor origin: WKSecurityOrigin,
+                 initiatedByFrame frame: WKFrameInfo,
+                 decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+        decisionHandler(.grant)
     }
 
     override func responds(to aSelector: Selector!) -> Bool {
