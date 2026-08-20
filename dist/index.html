@@ -833,20 +833,6 @@
     </style>
 
 	<script>
-		let urlParams = new URLSearchParams(window.location.search);
-		urlParams.set('fromNativeApp', '1');
-		urlParams.set('fromApp', 'iosCapacitor');
-		const pfxSplit = `#####`;
-		const pfxSplitCallback = `@@@@@`;
-		let homePage = 'https://www.xeghep.cc/native.php?fromNativeApp=1';
-		let currentUserID = 0;
-		let currentUserType = 0;
-		let isTracking = 0;
-		let inningInAppBrowser = false;
-		let newNotifCount = 0;
-		let userRef = null;
-		let qrcodeInvite = null;
-		
 		// ==========================================
 		// 1. KIỂM TRA MÔI TRƯỜNG CAPACITOR NATIVE
 		// ==========================================
@@ -857,6 +843,27 @@
 				   window.Capacitor.isNativePlatform();
 		}
 
+		let urlParams = new URLSearchParams(window.location.search);
+		
+		// 1. Kiểm tra nếu URL chưa có param nhưng đang chạy trong Native Capacitor thì mới gán mặc định
+		if (isCapacitorEnv()) {
+			if (!urlParams.has('fromNativeApp')) urlParams.set('fromNativeApp', '1');
+			if (!urlParams.has('fromApp')) urlParams.set('fromApp', 'iosCapacitor');
+		}
+
+		const pfxSplit = `#####`;
+		const pfxSplitCallback = `@@@@@`;
+		let currentOriginPath = window.location.origin + window.location.pathname; 
+		//let homePage = currentOriginPath + '?' + urlParams.toString();
+		let homePage = currentOriginPath + '?fromNativeApp=1';
+		let currentUserID = 0;
+		let currentUserType = 0;
+		let isTracking = 0;
+		let inningInAppBrowser = false;
+		let newNotifCount = 0;
+		let userRef = null;
+		let qrcodeInvite = null;
+		
 		// ==========================================
 		// 2. HÀM TỰ ĐỘNG SYNC COOKIE TỪ PHP VỀ LOCALSTORAGE
 		// ==========================================
@@ -1085,7 +1092,7 @@
 		<div class="logo-container">
 			<div class="pulse-ring"></div>
 			<!-- Logo xe ghép -->
-			<img src="https://www.xeghep.cc/templates/default/images/xeGhep-512x512.png" alt="App Xe Ghép Hàng Đầu VN" class="app-logo" />
+			<img src="./images/xeGhep-512x512.png" alt="App Xe Ghép Hàng Đầu VN" class="app-logo" />
 		</div>
 		<div class="loading-text">Đang kết nối...</div>
 	</div>
@@ -1093,7 +1100,7 @@
     <!-- Topbar cố định -->
     <div class="topbar">
         <span class="material-icons-round hamburger-btn" onclick="toggleMenu(true)">menu</span>
-		<span class="material-icons-round logo-home"><a href="" onclick="update3Block(true);switchPage('home', null, document.getElementById('homeNavID'));return false"><img src="https://www.xeghep.cc/templates/default/images/xe-ghep-logo.png" height="54" alt="Home" area-label="Home" /></a></span>
+		<span class="material-icons-round logo-home"><a href="" onclick="update3Block(true);switchPage('home', null, document.getElementById('homeNavID'));return false"><img src="./images/xe-ghep-logo.png" height="54" alt="Home" area-label="Home" /></a></span>
         <div id="topbar-title">App Xe Ghép Hàng Đầu VN</div>
     </div>
 
@@ -1101,7 +1108,7 @@
     <div class="menu-overlay" id="menu-overlay" onclick="toggleMenu(false)"></div>
     <div class="side-menu" id="side-menu">
         <div class="menu-header">
-            <div class="avatar"><span class="material-icons-round"><a href="" onclick="toggleMenu(false);switchPage('profile', 'Cá nhân', document.getElementById('accountNavID'));return false"><img src="https://www.xeghep.cc/templates/default/images/xeGhep-512x512.png" height="72" /></a></span></div>
+            <div class="avatar"><span class="material-icons-round"><a href="" onclick="toggleMenu(false);switchPage('profile', 'Cá nhân', document.getElementById('accountNavID'));return false"><img src="./images/xeGhep-512x512.png" height="72" /></a></span></div>
             <div class="user-info">
                 <h3><a href="" onclick="toggleMenu(false);switchPage('profile', 'Cá nhân', document.getElementById('accountNavID'));return false" style="color:#000000;text-decoration:none">Chào mừng bạn!</a></h3>
                 <p><a href="" onclick="toggleMenu(false);switchPage('profile', 'Cá nhân', document.getElementById('accountNavID'));return false" style="color:#000000;text-decoration:none">Tham gia ngay</a></p>
@@ -1183,7 +1190,7 @@
   </div>
 </div>
 
-<a href="" onclick="switchPage('profile', 'Cá nhân', document.getElementById('accountNavID'));switchTabLogin('register');return false"><img src="https://www.xeghep.cc/templates/default/images/introDriver.png" 
+<a href="" onclick="switchPage('profile', 'Cá nhân', document.getElementById('accountNavID'));switchTabLogin('register');return false"><img src="./images/introDriver.png" 
      alt="Giới thiệu App XeGhep.CC" 
      style="display: block; 
             max-width: 100%; 
@@ -1718,7 +1725,7 @@
     <div style="background-color: #0f172a; border: 1px solid #1e293b; padding: 1rem; border-radius: 1.5rem; max-width: 24rem; width: 100%; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
         
         <!-- Icon hiệu ứng nhún (bounce) -->
-        <div style="color: #fbbf24; font-size: 3rem; line-height: 1; animation: inlineBouncee 1s infinite; margin-bottom: 0.25rem;"><img src="https://www.xeghep.cc/templates/default/images/xe-ghep-trans.png" height="120" /></div>
+        <div style="color: #fbbf24; font-size: 3rem; line-height: 1; animation: inlineBouncee 1s infinite; margin-bottom: 0.25rem;"><img src="./images/xe-ghep-trans.png" height="120" /></div>
         
         <h3 style="font-size: 1.25rem; line-height: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 1rem 0;">Chào mừng bạn !</h3>
         
@@ -4680,8 +4687,8 @@ async function checkNetworkAndReload() {
         // CHỈ RELOAD NẾU TRƯỚC ĐÓ ĐANG Ở TRẠNG THÁI MẤT MẠNG
         if (isOffline) {
             isOffline = false;
-            //window.location.reload(); 
-			update3Block();
+            window.location.reload(); 
+			//update3Block();
         } else {
             //showOfflineUI(false);
         }
