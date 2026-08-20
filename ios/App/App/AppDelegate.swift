@@ -3,6 +3,7 @@ import Capacitor
 import FirebaseCore
 import FirebaseMessaging
 import UserNotifications
+import WebKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
@@ -22,8 +23,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         let customBgColor = UIColor(red: 242/255.0, green: 242/255.0, blue: 247/255.0, alpha: 1.0)
         window.backgroundColor = customBgColor
         
-        let bridgeVC = CAPBridgeViewController()
+        let bridgeVC = CustomBridgeViewController() // Sử dụng Custom Class để tự động bắt WKWebView
         bridgeVC.view.backgroundColor = customBgColor
+        
         window.rootViewController = bridgeVC
         window.makeKeyAndVisible()
         self.window = window
@@ -151,5 +153,50 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
+    }
+}
+
+// =========================================================================
+// 🚀 CLASS BẢO HIỂM: TỰ ĐỘNG CẤP QUYỀN MICROPHONE MÀ KHÔNG GÂY LỖI PENDING HTTP
+// =========================================================================
+class CustomBridgeViewController: CAPBridgeViewController, WKUIDelegate {
+    
+    private weak var originalUIDelegate: WKUIDelegate?
+
+    override func webViewDidLoad() {
+        super.webViewDidLoad()
+        // Lưu lại Delegate gốc của Capacitor trước khi gán
+        self.originalUIDelegate = self.webView?.uiDelegate
+        self.webView?.uiDelegate = self
+    }
+
+    @available(iOS 15.0, *)
+    func webView(_ webView: WKWebView,
+                 requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+                 initiatedByFrame frame: WKFrameInfo,
+                 type: WKMediaCaptureType,
+                 decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+        
+        if type == .microphone {
+            decisionHandler(.grant) // Tự động duyệt Microphone
+        } else {
+            // Nhường lại các quyền khác cho Capacitor xử lý
+            if let delegate = originalUIDelegate, delegate.responds(to: #selector(webView(_:requestMediaCapturePermissionFor:initiatedByFrame:type:decisionHandler:))) {
+                delegate.webView?(webView, requestMediaCapturePermissionFor: origin, initiatedByFrame: frame, type: type, decisionHandler: decisionHandler)
+            } else {
+                decisionHandler(.prompt)
+            }
+        }
+    }
+
+    // Forward tất cả các sự kiện UI khác (alert, confirm, popups) về cho Delegate gốc của Capacitor
+    override func responds(to aSelector: Selector!) -> Bool {
+        if super.responds(to: aSelector) { return true }
+        return originalUIDelegate?.responds(to: aSelector) ?? false
+    }
+
+    override func forwardingTarget(for aSelector: Selector!) -> Any? {
+        if super.responds(to: aSelector) { return self }
+        return originalUIDelegate
     }
 }
