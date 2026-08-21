@@ -884,7 +884,7 @@
 		}
 
 		// Hook tự động Sync Cookie mỗi khi có request AJAX/Fetch thành công
-		if (typeof $ !== 'undefined') {
+		/*if (typeof $ !== 'undefined') {
 			$(document).ajaxComplete(function() {
 				syncNativeCookiesToStorage();
 			});
@@ -896,7 +896,149 @@
 				syncNativeCookiesToStorage();
 				return response;
 			};
-		}
+		}*/
+
+// 1. Nâng cấp hàm saveToCache để lưu kèm Content-Type
+function saveToCache(url, dataText, contentType) {
+    try {
+        localStorage.setItem('cap_cache_' + url, JSON.stringify({
+            timestamp: Date.now(),
+            contentType: contentType || 'application/json', // Lưu MIME type
+            data: dataText
+        }));
+    } catch (e) {
+        console.error("Lỗi ghi Cache:", e);
+    }
+}
+
+// 2. Hàm đọc Cache trả về cả Data và Content-Type
+function getFromCache(url) {
+    const cached = localStorage.getItem('cap_cache_' + url);
+    if (cached) {
+        try {
+            return JSON.parse(cached); // Trả về { timestamp, contentType, data }
+        } catch (e) {
+            return { contentType: 'text/html', data: cached };
+        }
+    }
+    return null;
+}
+
+// -------------------------------------------------------------
+// HOOK FETCH linh hoạt JSON & HTML
+// -------------------------------------------------------------
+if (isCapacitorEnv()) {
+    const originalFetch = window.fetch;
+
+    window.fetch = async function(...args) {
+        const url = typeof args[0] === 'string' ? args[0] : args[0].url;
+        const method = (args[1] && args[1].method) ? args[1].method.toUpperCase() : 'GET';
+        
+        const isGetRequest = (method === 'GET');
+        const cachedObj = isGetRequest ? getFromCache(url) : null;
+
+        // Tiến trình 1: Âm thầm revalidate từ Server
+        const networkPromise = originalFetch(...args)
+            .then(async (response) => {
+                if (response.ok && isGetRequest) {
+                    const cloneRes = response.clone();
+                    
+                    // Lấy chính xác Content-Type từ Server trả về (vd: application/json hay text/html)
+                    const contentType = response.headers.get('content-type') || 'application/json';
+                    const freshDataText = await cloneRes.text();
+                    
+                    // Lưu cả Data và Content-Type vào Cache
+                    saveToCache(url, freshDataText, contentType);
+                    
+                    // Phát event kèm theo parsed data nếu là JSON
+                    let parsedData = freshDataText;
+                    if (contentType.includes('application/json')) {
+                        try { parsedData = JSON.parse(freshDataText); } catch(e){}
+                    }
+
+                    window.dispatchEvent(new CustomEvent('swr-updated', {
+                        detail: { url: url, data: parsedData, contentType: contentType }
+                    }));
+                }
+                syncNativeCookiesToStorage();
+                return response;
+            })
+            .catch((err) => {
+                syncNativeCookiesToStorage();
+                if (!cachedObj) throw err;
+            });
+
+        // ƯU TIÊN SWR: Trả về Cache ngay lập tức với đúng Content-Type cũ
+        if (cachedObj) {
+            return new Response(cachedObj.data, {
+                status: 200,
+                statusText: "OK (Stale Cache)",
+                headers: { 
+                    // Tự động trả về đúng 'application/json' hoặc 'text/html'
+                    'Content-Type': cachedObj.contentType || 'application/json; charset=utf-8' 
+                }
+            });
+        }
+
+        return networkPromise;
+    };
+}
+
+// -------------------------------------------------------------
+// HOOK JQUERY AJAX (Stale-While-Revalidate linh hoạt JSON/HTML)
+// -------------------------------------------------------------
+if (typeof $ !== 'undefined') {
+    $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
+        // Chỉ áp dụng cho request GET
+        if (options.type && options.type.toUpperCase() !== 'GET') return;
+
+        const url = options.url;
+        const cachedObj = getFromCache(url); // Trả về { contentType, data }
+
+        // 1. NẾU CÓ CACHE: Trả data ngay lập tức cho UI (0ms)
+        if (cachedObj && typeof options.success === 'function') {
+            let parsedData = cachedObj.data;
+            
+            // Tự động parse nếu là JSON hoặc nếu dataType kỳ vọng là json
+            if (
+                (cachedObj.contentType && cachedObj.contentType.includes('application/json')) ||
+                options.dataType === 'json'
+            ) {
+                try {
+                    if (typeof parsedData === 'string') {
+                        parsedData = JSON.parse(parsedData);
+                    }
+                } catch (e) {
+                    console.warn("Lỗi parse JSON cache:", e);
+                }
+            }
+
+            // Gọi success ngay với dữ liệu Cache
+            options.success(parsedData, "stale", jqXHR);
+        }
+
+        // 2. GHI ĐÈ SUCCESS: Âm thầm revalidate từ Server
+        const originalSuccess = options.success;
+        options.success = function(data, textStatus, xhr) {
+            if (xhr.status === 200) {
+                // Lấy Content-Type thực tế từ Server
+                const contentType = xhr.getResponseHeader('content-type') || 'application/json';
+                
+                // Chuẩn hóa data về dạng chuỗi để lưu vào Cache
+                const dataText = (typeof data === 'object') ? JSON.stringify(data) : data;
+                
+                // Cập nhật Cache mới
+                saveToCache(url, dataText, contentType);
+
+                // So sánh data mới với data cũ, nếu có thay đổi thì gọi success lần 2 để đè UI
+                const oldCacheText = cachedObj ? cachedObj.data : null;
+                if (dataText !== oldCacheText && typeof originalSuccess === 'function') {
+                    originalSuccess(data, "revalidated", xhr);
+                }
+            }
+        };
+    });
+}
 
 		// Sync ngay 1 lần khi bắt đầu tải trang
 		syncNativeCookiesToStorage();
