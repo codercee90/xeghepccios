@@ -14,7 +14,6 @@ platform :ios do
     upload_to_app_store(
       api_key: api_key,
       skip_binary_upload: true, # Bắt buộc: Bỏ qua upload IPA
-      app_version: "3.1",
       skip_metadata: false,      # Cập nhật metadata
       skip_screenshots: false,   # Cập nhật screenshots
       force: true,               # Bỏ qua các câu hỏi xác nhận
