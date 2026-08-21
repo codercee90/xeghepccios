@@ -16,6 +16,7 @@ platform :ios do
       languages: ["vi"],
       skip_binary_upload: true, # Bắt buộc: Bỏ qua upload IPA
       skip_app_version_update: true,
+      automatic_release: false,
       skip_metadata: false,      # Cập nhật metadata
       skip_screenshots: true,   # Cập nhật screenshots
       overwrite_screenshots: true,   # Cập nhật screenshots
