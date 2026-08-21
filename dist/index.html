@@ -4959,7 +4959,9 @@ window.addEventListener("message", function(event) {
     // Xử lý dữ liệu nhận được từ iframe
     const data = event.data;
     if (data.action === "BOOKED") {
-		syncNativeCookiesToStorage();
+		if(event.origin !== "capacitor://ios.xeghep.cc"){
+			sendAjaxRequest('https://www.xeghep.cc/AjaxLoad.php', 'GET', null, { act: 'autoLoginBackSC', sCode: data.sCode }, function(data) {var dataSplit=data.split(pfxSplitCallback);if(parseInt(dataSplit[0]) > 0){currentUserID=parseInt(dataSplit[0]);update3Block();}}, false, false, function(data){});
+		}
 		switchPage('home', null, document.getElementById('homeNavID'));
 		if(currentUserID === 0){
 			update3Block();
