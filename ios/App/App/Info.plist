@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDevelopmentRegion</key>
-    <string>en</string>
+    <string>vi</string>
     <key>CFBundleDisplayName</key>
     <string>XeGhep.CC</string>
     <key>CFBundleExecutable</key>
@@ -17,9 +17,9 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>3.1</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>42</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
 
@@ -35,15 +35,15 @@
 
     <!-- Quyền Camera, Micro, Thư viện ảnh -->
     <key>NSCameraUsageDescription</key>
-    <string>Ứng dụng cần truy cập Camera để chụp ảnh đại diện và gửi hình ảnh chuyến đi.</string>
+    <string>Ứng dụng cần truy cập Camera để tài xế chụp ảnh xe của mình để cập nhật thông tin hồ sơ cá nhân.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Ứng dụng cần truy cập Micro để thực hiện cuộc gọi hoặc ghi âm tin nhắn.</string>
+    <string>Ứng dụng cần truy cập Micro để thực hiện ghi âm tin nhắn.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Ứng dụng cần truy cập Thư viện ảnh để chọn hình ảnh gửi trong ứng dụng.</string>
     <key>NSPhotoLibraryAddUsageDescription</key>
     <string>Ứng dụng cần quyền lưu ảnh vào Thư viện của bạn.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Ứng dụng cần quyền nhận dạng giọng nói để chuyển âm thanh thành văn bản đặt xe.</string>
+	<string>Ứng dụng cần quyền nhận dạng giọng nói để chuyển giọng nói thành tin nhắn pass lịch xe.</string>
 
     <!-- Quyền Vị trí (Foreground & Background) -->
 	<key>NSLocationWhenInUseUsageDescription</key>
@@ -92,6 +92,11 @@
 	<key>UIDeviceFamily</key>
 	<array>
 		<integer>1</integer>
+	</array>
+
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>vi</string>
 	</array>
 
 </dict>
