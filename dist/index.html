@@ -1206,13 +1206,13 @@ if (typeof $ !== 'undefined') {
 <!-- Chèn thư viện Capacitor Core & Geolocation (Nếu chạy trên PWA/TWA nó sẽ tự bỏ qua không gây lỗi) -->
 <script src="https://cdn.jsdelivr.net/npm/@capacitor/core@latest/dist/capacitor.js"></script>
 
-<script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
+<!--<script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
 <script>
   // Khởi tạo vConsole để xem log ngay trên màn hình điện thoại
   if(fromApp === 'iosCapacitor'){
   var vConsole = new VConsole();
   }
-</script>
+</script>-->
 <!--<script>
   // Kiểm tra nếu trang đang chạy bên trong TWA
   if (document.referrer.includes('android-app://cc.xeghep.www.twa')) {
@@ -4951,8 +4951,6 @@ document.addEventListener('visibilitychange', function() {
 });
 
 window.addEventListener("message", function(event) {
-	alert(event.origin);
-	alert(event.data.action);
     // ⚠️ BẢO MẬT: Kiểm tra nguồn gửi tin nhắn có đúng là iframe của bạn không
     if (event.origin !== "https://www.xeghep.cc" && event.origin !== "capacitor://ios.xeghep.cc") {
         return; // Bỏ qua nếu tin nhắn đến từ nguồn lạ
@@ -4961,6 +4959,7 @@ window.addEventListener("message", function(event) {
     // Xử lý dữ liệu nhận được từ iframe
     const data = event.data;
     if (data.action === "BOOKED") {
+		syncNativeCookiesToStorage();
 		switchPage('home', null, document.getElementById('homeNavID'));
 		if(currentUserID === 0){
 			update3Block();
