@@ -4959,7 +4959,7 @@ window.addEventListener("message", function(event) {
 
     // Xử lý dữ liệu nhận được từ iframe
     const data = event.data;
-    if (data.action === "BOOKED" && event.origin !== "capacitor://ios.xeghep.cc") {
+    if (data.action === "BOOKED") {
 		switchPage('home', null, document.getElementById('homeNavID'));
 		if(currentUserID === 0){
 			update3Block();
