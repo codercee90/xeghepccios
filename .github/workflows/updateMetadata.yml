@@ -22,7 +22,6 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
-          bundler-cache: true
 
       # 3. Tạo file AuthKey .p8 từ GitHub Secrets
       - name: Create App Store Connect API Key File
@@ -37,4 +36,5 @@ jobs:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_FILE_PATH: ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
         run: |
-          bundle exec fastlane update_metadata_only
+          gem install fastlane
+          fastlane update_metadata_only
