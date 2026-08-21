@@ -4951,8 +4951,9 @@ document.addEventListener('visibilitychange', function() {
 });
 
 window.addEventListener("message", function(event) {
+	alert(event.origin);
     // ⚠️ BẢO MẬT: Kiểm tra nguồn gửi tin nhắn có đúng là iframe của bạn không
-    if (event.origin !== "https://www.xeghep.cc") {
+    if (event.origin !== "https://www.xeghep.cc" && event.origin !== "capacitor://ios.xeghep.cc") {
         return; // Bỏ qua nếu tin nhắn đến từ nguồn lạ
     }
 
