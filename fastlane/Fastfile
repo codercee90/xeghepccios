@@ -14,10 +14,11 @@ platform :ios do
     upload_to_app_store(
       api_key: api_key,
       skip_binary_upload: true, # Bắt buộc: Bỏ qua upload IPA
+      skip_app_version_update: true,
       skip_metadata: false,      # Cập nhật metadata
       skip_screenshots: false,   # Cập nhật screenshots
       force: true,               # Bỏ qua các câu hỏi xác nhận
-      submit_for_review: true   # Đặt true nếu muốn bấm gửi duyệt luôn sau khi upload
+      submit_for_review: false   # Đặt true nếu muốn bấm gửi duyệt luôn sau khi upload
     )
   end
 end
