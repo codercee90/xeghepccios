@@ -205,7 +205,11 @@
             -webkit-user-select: none;
         }
 
-        body {
+		html, body {
+			-webkit-overflow-scrolling: touch;
+		}
+
+		body {
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
@@ -3094,7 +3098,13 @@ document.addEventListener('focusin', function (e) {
             // Cho container tràn hết cỡ xuống đáy màn hình khi đang gõ
             appContainer.style.height = `calc(100vh - ${topBarHeight}px)`;
         }
-    }
+
+		// Ép window giữ nguyên vị trí góc tọa độ (0, 0)
+		setTimeout(() => {
+		  window.scrollTo(0, 0);
+		  document.body.scrollTop = 0;
+		}, 50);
+	}
 });
 
 // Xử lý sự kiện khi BÀN PHÍM HẠ XUỐNG
