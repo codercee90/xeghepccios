@@ -32,7 +32,7 @@
     "Keyboard": {
       "resize": "none",
       "style": "DARK",
-      "resizeOnFullScreen": true
+      "resizeOnFullScreen": false
     }
   },
   "ios": {
