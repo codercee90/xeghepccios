@@ -28,6 +28,11 @@
     },
     "CapacitorCookies": {
       "enabled": true
+    },
+    "Keyboard": {
+      "resize": "none",
+      "style": "DARK",
+      "resizeOnFullScreen": true
     }
   },
   "ios": {
