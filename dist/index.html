@@ -3100,7 +3100,7 @@ document.addEventListener('focusin', function (e) {
         const topBarHeight = topBar ? topBar.offsetHeight : 54;
         
         // Cho container tràn hết cỡ xuống đáy màn hình khi đang gõ
-        appContainer.style.height = `calc(100vh - ${topBarHeight}px)`;
+        appContainer.style.height = `calc(100vh - 54px)`;//${topBarHeight}
       }
     }, 500);
   }
@@ -4999,6 +4999,23 @@ window.addEventListener("message", function(event) {
 			}, 40);
 
 		}, 80);
+	} else if (data.action === "FIX_IOS_TOP_BAR") {
+		isKeyboardOpen = true;
+
+		const bottomBar = document.querySelector('.bottombar');
+		const appContainer = document.querySelector('.app-container');
+
+		// Ẩn thanh bottombar
+		if (bottomBar) bottomBar.style.display = 'none';
+
+		// Cập nhật chiều cao container theo chiều cao thực tế của cửa sổ
+		if (appContainer) {
+			const topBar = document.querySelector('.topbar');
+			const topBarHeight = topBar ? topBar.offsetHeight : 54;
+			
+			// Cho container tràn hết cỡ xuống đáy màn hình khi đang gõ
+			appContainer.style.height = `calc(100vh - 54px)`;//${topBarHeight}
+		}
 	}
 });
 
