@@ -4968,7 +4968,29 @@ window.addEventListener("message", function(event) {
 		}else{
 			startAutoUpdate(`home`, null, (currentUserType === 0 ? `homeAutoRefresh` : `homeAutoRefreshPending`), 1);
 		}
-    }
+    } else if (data.action === "FIX_IOS_BOTTOM_BAR") {
+		setTimeout(() => {
+			// 1. Reset trạng thái cuộn của Safari về vị trí gốc
+			window.scrollTo(0, 0);
+			document.body.scrollTop = 0;
+			
+			// 2. Hiện lại Bottombar
+			const bottomBar = document.querySelector('.bottombar');
+			if (bottomBar) bottomBar.style.display = 'flex';
+			
+			isKeyboardOpen = false;
+
+			// 3. Chu kỳ bám đuổi để tính lại layout chuẩn khi bàn phím trượt xuống hẳn
+			let count = 0;
+			const interval = setInterval(() => {
+				window.scrollTo(0, 0);
+				fixIOSBottomBar();
+				count++;
+				if (count > 8) clearInterval(interval);
+			}, 40);
+
+		}, 80);
+	}
 });
 
 // Biến tạm trên RAM để khóa, tránh ping dồn dập trong cùng một phiên mở trang
