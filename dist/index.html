@@ -3099,9 +3099,8 @@ document.addEventListener('focusin', function (e) {
         const topBar = document.querySelector('.topbar');
         const topBarHeight = topBar ? topBar.offsetHeight : 54;
         
-        // Dùng window.innerHeight để tính chính xác phần màn hình còn lại khi có bàn phím
-        const actualHeight = window.innerHeight - topBarHeight;
-        appContainer.style.height = `${actualHeight}px`;
+        // Cho container tràn hết cỡ xuống đáy màn hình khi đang gõ
+        appContainer.style.height = `calc(100vh - ${topBarHeight}px)`;
       }
     }, 500);
   }
