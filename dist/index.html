@@ -6066,6 +6066,20 @@ function handleInstallWebAppPWA(){
       }
     }
   });
+
+document.addEventListener('DOMContentLoaded', function() {
+  const inputs = document.querySelectorAll('input, textarea');
+  
+  inputs.forEach(input => {
+    input.addEventListener('focus', function() {
+      // Đợi bàn phím nảy lên hoàn tất
+      setTimeout(() => {
+        // Cuộn nội dung bên trong wrapper lên để ô input hiển thị rõ
+        this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    });
+  });
+});
 </script>
 
 </body>
