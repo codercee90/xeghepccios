@@ -6029,34 +6029,43 @@ function handleInstallWebAppPWA(){
   }
 </script>
 
-<script type="module">
-  if (isCapacitorEnv()) {
-    // Dynamic import hợp lệ bên trong khối IF
-    import('@capacitor/keyboard').then(({ Keyboard }) => {
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // 1. Kiểm tra xem ứng dụng có đang chạy trên Capacitor Native hay không
+    if (isCapacitorEnv()) {
       
-      Keyboard.setAccessoryBarVisible({ isVisible: false });
+      // Lấy trực tiếp plugin Keyboard từ object Capacitor toàn cục
+      const Keyboard = window.Capacitor.Plugins.Keyboard;
 
-      Keyboard.addListener('keyboardWillShow', () => {
-        window.scrollTo(0, 0);
-        document.body.scrollTop = 0;
+      if (Keyboard) {
+        // 2. Tắt thanh công cụ phụ trên bàn phím iOS (Done, mũi tên)
+        if (typeof Keyboard.setAccessoryBarVisible === 'function') {
+          Keyboard.setAccessoryBarVisible({ isVisible: false });
+        }
 
-        document.body.style.position = 'fixed';
-        document.body.style.top = '0px';
-        document.body.style.left = '0px';
-        document.body.style.width = '100%';
-      });
+        // 3. Khóa vị trí body khi bàn phím bật lên
+        Keyboard.addListener('keyboardWillShow', function () {
+          window.scrollTo(0, 0);
+          document.body.scrollTop = 0;
 
-      Keyboard.addListener('keyboardWillHide', () => {
-        document.body.style.position = '';
-        document.body.style.top = '';
-        document.body.style.left = '';
-        document.body.style.width = '';
+          document.body.style.position = 'fixed';
+          document.body.style.top = '0px';
+          document.body.style.left = '0px';
+          document.body.style.width = '100%';
+        });
 
-        window.scrollTo(0, 0);
-      });
+        // 4. Mở lại vị trí khi bàn phím ẩn
+        Keyboard.addListener('keyboardWillHide', function () {
+          document.body.style.position = '';
+          document.body.style.top = '';
+          document.body.style.left = '';
+          document.body.style.width = '';
 
-    }).catch(err => console.log('Không thể load Keyboard module:', err));
-  }
+          window.scrollTo(0, 0);
+        });
+      }
+    }
+  });
 </script>
 
 </body>
