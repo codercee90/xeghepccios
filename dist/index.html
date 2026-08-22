@@ -6029,5 +6029,35 @@ function handleInstallWebAppPWA(){
   }
 </script>
 
+<script type="module">
+  if (isCapacitorEnv()) {
+    // Dynamic import hợp lệ bên trong khối IF
+    import('@capacitor/keyboard').then(({ Keyboard }) => {
+      
+      Keyboard.setAccessoryBarVisible({ isVisible: false });
+
+      Keyboard.addListener('keyboardWillShow', () => {
+        window.scrollTo(0, 0);
+        document.body.scrollTop = 0;
+
+        document.body.style.position = 'fixed';
+        document.body.style.top = '0px';
+        document.body.style.left = '0px';
+        document.body.style.width = '100%';
+      });
+
+      Keyboard.addListener('keyboardWillHide', () => {
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.left = '';
+        document.body.style.width = '';
+
+        window.scrollTo(0, 0);
+      });
+
+    }).catch(err => console.log('Không thể load Keyboard module:', err));
+  }
+</script>
+
 </body>
 </html>
