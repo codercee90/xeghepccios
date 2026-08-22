@@ -3082,18 +3082,26 @@ document.addEventListener('focusin', function (e) {
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
         isKeyboardOpen = true; 
         
-        /*const bottomBar = document.querySelector('.bottombar');
+        const bottomBar = document.querySelector('.bottombar');
         const appContainer = document.querySelector('.app-container');
         
         // Ẩn thanh bottombar ngay lập tức để lấy diện tích nhập liệu
         if (bottomBar) bottomBar.style.display = 'none';
         
-        if (appContainer) {
+        // Đợi bàn phím nảy lên hoàn tất
+        setTimeout(() => {
+          // Cuộn nội dung bên trong wrapper lên để ô input hiển thị rõ
+          this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+
+        setTimeout(() => {
+		if (appContainer) {
             const topBar = document.querySelector('.topbar');
             const topBarHeight = topBar ? topBar.offsetHeight : 54;
             // Cho container tràn hết cỡ xuống đáy màn hình khi đang gõ
             appContainer.style.height = `calc(100vh - ${topBarHeight}px)`;
-        }*/
+        }
+        }, 500);
 	}
 });
 
@@ -6027,45 +6035,6 @@ function handleInstallWebAppPWA(){
       }, 300);
     }
   }
-</script>
-
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    // 1. Kiểm tra xem ứng dụng có đang chạy trên Capacitor Native hay không
-    if (isCapacitorEnv()) {
-      
-      // Lấy trực tiếp plugin Keyboard từ object Capacitor toàn cục
-      const Keyboard = window.Capacitor.Plugins.Keyboard;
-
-      if (Keyboard) {
-        // 2. Tắt thanh công cụ phụ trên bàn phím iOS (Done, mũi tên)
-        if (typeof Keyboard.setAccessoryBarVisible === 'function') {
-          Keyboard.setAccessoryBarVisible({ isVisible: false });
-        }
-
-        // 3. Khóa vị trí body khi bàn phím bật lên
-        Keyboard.addListener('keyboardWillShow', function () {
-          window.scrollTo(0, 0);
-          document.body.scrollTop = 0;
-
-          document.body.style.position = 'fixed';
-          document.body.style.top = '0px';
-          document.body.style.left = '0px';
-          document.body.style.width = '100%';
-        });
-
-        // 4. Mở lại vị trí khi bàn phím ẩn
-        Keyboard.addListener('keyboardWillHide', function () {
-          document.body.style.position = '';
-          document.body.style.top = '';
-          document.body.style.left = '';
-          document.body.style.width = '';
-
-          window.scrollTo(0, 0);
-        });
-      }
-    }
-  });
 </script>
 
 </body>
