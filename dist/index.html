@@ -3079,30 +3079,32 @@ if (window.visualViewport) {
 
 // Xử lý sự kiện khi BÀN PHÍM BẬT LÊN
 document.addEventListener('focusin', function (e) {
-    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
-        isKeyboardOpen = true; 
-        
-        const bottomBar = document.querySelector('.bottombar');
-        const appContainer = document.querySelector('.app-container');
-        
-        // Ẩn thanh bottombar ngay lập tức để lấy diện tích nhập liệu
-        if (bottomBar) bottomBar.style.display = 'none';
-        
-        // Đợi bàn phím nảy lên hoàn tất
-        setTimeout(() => {
-          // Cuộn nội dung bên trong wrapper lên để ô input hiển thị rõ
-          this.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 300);
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
+    isKeyboardOpen = true;
 
-        setTimeout(() => {
-		if (appContainer) {
-            const topBar = document.querySelector('.topbar');
-            const topBarHeight = topBar ? topBar.offsetHeight : 54;
-            // Cho container tràn hết cỡ xuống đáy màn hình khi đang gõ
-            appContainer.style.height = `calc(100vh - ${topBarHeight}px)`;
-        }
-        }, 500);
-	}
+    const bottomBar = document.querySelector('.bottombar');
+    const appContainer = document.querySelector('.app-container');
+
+    // Ẩn thanh bottombar
+    if (bottomBar) bottomBar.style.display = 'none';
+
+    // Cuộn nội dung đến ô input (Dùng e.target thay vì this)
+    setTimeout(() => {
+      e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+
+    // Cập nhật chiều cao container theo chiều cao thực tế của cửa sổ
+    setTimeout(() => {
+      if (appContainer) {
+        const topBar = document.querySelector('.topbar');
+        const topBarHeight = topBar ? topBar.offsetHeight : 54;
+        
+        // Dùng window.innerHeight để tính chính xác phần màn hình còn lại khi có bàn phím
+        const actualHeight = window.innerHeight - topBarHeight;
+        appContainer.style.height = `${actualHeight}px`;
+      }
+    }, 500);
+  }
 });
 
 // Xử lý sự kiện khi BÀN PHÍM HẠ XUỐNG
