@@ -3082,7 +3082,7 @@ document.addEventListener('focusin', function (e) {
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
         isKeyboardOpen = true; 
         
-        const bottomBar = document.querySelector('.bottombar');
+        /*const bottomBar = document.querySelector('.bottombar');
         const appContainer = document.querySelector('.app-container');
         
         // Ẩn thanh bottombar ngay lập tức để lấy diện tích nhập liệu
@@ -3093,7 +3093,7 @@ document.addEventListener('focusin', function (e) {
             const topBarHeight = topBar ? topBar.offsetHeight : 54;
             // Cho container tràn hết cỡ xuống đáy màn hình khi đang gõ
             appContainer.style.height = `calc(100vh - ${topBarHeight}px)`;
-        }
+        }*/
 	}
 });
 
@@ -6066,20 +6066,6 @@ function handleInstallWebAppPWA(){
       }
     }
   });
-
-document.addEventListener('DOMContentLoaded', function() {
-  const inputs = document.querySelectorAll('input, textarea');
-  
-  inputs.forEach(input => {
-    input.addEventListener('focus', function() {
-      // Đợi bàn phím nảy lên hoàn tất
-      setTimeout(() => {
-        // Cuộn nội dung bên trong wrapper lên để ô input hiển thị rõ
-        this.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 300);
-    });
-  });
-});
 </script>
 
 </body>
