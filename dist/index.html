@@ -3100,7 +3100,7 @@ document.addEventListener('focusin', function (e) {
         const topBarHeight = topBar ? topBar.offsetHeight : 54;
         
         // Cho container tràn hết cỡ xuống đáy màn hình khi đang gõ
-        appContainer.style.height = `calc(100vh - 54px)`;//${topBarHeight}
+        appContainer.style.height = `calc(100vh - ${topBarHeight}px)`;
       }
     }, 500);
   }
@@ -5014,7 +5014,7 @@ window.addEventListener("message", function(event) {
 			const topBarHeight = topBar ? topBar.offsetHeight : 54;
 			
 			// Cho container tràn hết cỡ xuống đáy màn hình khi đang gõ
-			appContainer.style.height = `calc(100vh - 54px)`;//${topBarHeight}
+			appContainer.style.height = `calc(100vh - ${topBarHeight}px)`;
 		}
 	}
 });
