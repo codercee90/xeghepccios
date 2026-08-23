@@ -863,7 +863,7 @@
 		let newNotifCount = 0;
 		let userRef = null;
 		let qrcodeInvite = null;
-		const versionNow = '1.0.52';
+		const versionNow = '1.0.53';
 		
 		// ==========================================
 		// 2. HÀM TỰ ĐỘNG SYNC COOKIE TỪ PHP VỀ LOCALSTORAGE
@@ -1037,10 +1037,24 @@ if (typeof $ !== 'undefined') {
                     originalSuccess(data, "revalidated", xhr);
                 }
             }
+
+            // 👉 VỊ TRÍ 1: Đồng bộ cookie khi request thành công
+            syncNativeCookiesToStorage();
+        };
+
+        // 3. GHI ĐÈ ERROR: Bắt lỗi nếu request thất bại
+        const originalError = options.error;
+        options.error = function(xhr, textStatus, errorThrown) {
+            // 👉 VỊ TRÍ 2: Đồng bộ cookie khi request thất bại (giống đoạn catch() của fetch)
+            syncNativeCookiesToStorage();
+
+            if (typeof originalError === 'function') {
+                originalError(xhr, textStatus, errorThrown);
+            }
         };
     });
 }
-
+		
 		// Sync ngay 1 lần khi bắt đầu tải trang
 		syncNativeCookiesToStorage();
 
