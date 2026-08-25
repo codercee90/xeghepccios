@@ -96,18 +96,38 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
     // MARK: - Push Notifications Delegates
 
+    // Biến lưu tạm Token ở Native
+    var cachedApnsToken: String?
+    
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        let apnsToken = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
+        self.cachedApnsToken = apnsToken // Lưu lại
+    
         if isFirebaseAllowed {
             Messaging.messaging().apnsToken = deviceToken
             NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
         }
-
-        // --- THÊM ĐOẠN NÀY ĐỂ ĐẨY APNS TOKEN VỀ FRONTEND CONSOLE ---
-        let apnsToken = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
+    
+        // Bắn sang WebView
+        self.pushTokenToWebView()
+    }
+    
+    func pushTokenToWebView() {
+        guard let token = self.cachedApnsToken else { return }
+        
         DispatchQueue.main.async {
-            if let bridgeVC = self.window?.rootViewController as? CAPBridgeViewController {
-                let jsCode = "console.log('🔥 REAL APNS TOKEN:', '\(apnsToken)'); window.myApnsToken = '\(apnsToken)';"
-                bridgeVC.bridge?.webView?.evaluateJavaScript(jsCode, completionHandler: nil)
+            guard let bridgeVC = self.window?.rootViewController as? CAPBridgeViewController else { return }
+            
+            // Bắn liên tục 2-3 lần sau các khoảng trễ để đảm bảo vConsole đã load xong
+            let js = "window.myApnsToken = '\(token)'; console.log('💧 REAL APNS TOKEN:', '\(token)');"
+            
+            bridgeVC.bridge?.webView?.evaluateJavaScript(js, completionHandler: nil)
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                bridgeVC.bridge?.webView?.evaluateJavaScript(js, completionHandler: nil)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                bridgeVC.bridge?.webView?.evaluateJavaScript(js, completionHandler: nil)
             }
         }
     }
