@@ -101,6 +101,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             Messaging.messaging().apnsToken = deviceToken
             NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
         }
+
+        // --- THÊM ĐOẠN NÀY ĐỂ ĐẨY APNS TOKEN VỀ FRONTEND CONSOLE ---
+        let apnsToken = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
+        DispatchQueue.main.async {
+            if let bridgeVC = self.window?.rootViewController as? CAPBridgeViewController {
+                let jsCode = "console.log('🔥 REAL APNS TOKEN:', '\(apnsToken)'); window.myApnsToken = '\(apnsToken)';"
+                bridgeVC.bridge?.webView?.evaluateJavaScript(jsCode, completionHandler: nil)
+            }
+        }
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
