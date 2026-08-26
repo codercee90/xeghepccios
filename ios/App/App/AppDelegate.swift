@@ -104,12 +104,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         self.cachedApnsToken = apnsToken // Lưu lại
     
         if isFirebaseAllowed {
-            // Messaging.messaging().apnsToken = deviceToken
-            #if DEBUG
-            Messaging.messaging().setApnsToken(deviceToken, type: .sandbox)
-            #else
-            Messaging.messaging().setApnsToken(deviceToken, type: .prod)
-            #endif
+            Messaging.messaging().apnsToken = deviceToken
             NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
         }
     
