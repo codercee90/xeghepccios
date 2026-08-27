@@ -5042,9 +5042,18 @@ async function resetHoanToanPWACache(updateOnly=false) {
 
     // 3. Xóa sạch LocalStorage và SessionStorage
     if(updateOnly === false){
-		localStorage.clear();
-		sessionStorage.clear();
-	}
+// 1. Xóa toàn bộ IndexedDB
+indexedDB.databases().then((dbs) => {
+  dbs.forEach((db) => {
+    indexedDB.deleteDatabase(db.name);
+  });
+  console.log("Đã xóa tất cả IndexedDB");
+});
+
+// 2. Xóa localStorage & sessionStorage
+localStorage.clear();
+sessionStorage.clear();
+    }
 
 	// 4. Ép trình duyệt tải lại trang từ Server, bỏ qua bộ nhớ đệm
 	console.log("[PWA] Đã xóa sạch! Đang reload...");
