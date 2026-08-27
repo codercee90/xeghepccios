@@ -1021,75 +1021,75 @@ if (isCapacitorEnv()) {
 
         return networkPromise;
     };
-}
 
-// -------------------------------------------------------------
-// HOOK JQUERY AJAX (SWR + Async Cache)
-// -------------------------------------------------------------
-if (typeof $ !== 'undefined') {
-    $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
-        // Chỉ áp dụng cho request GET
-        if (options.type && options.type.toUpperCase() !== 'GET') return;
-
-        const url = options.url;
-
-        // Đọc cache bất đồng bộ trước khi cho phép request tiếp tục
-        getFromCache(url).then((cachedObj) => {
-            // 1. NẾU CÓ CACHE: Trả data ngay lập tức cho UI
-            if (cachedObj && typeof options.success === 'function') {
-                let parsedData = cachedObj.data;
-                
-                if (
-                    (cachedObj.contentType && cachedObj.contentType.includes('application/json')) ||
-                    options.dataType === 'json'
-                ) {
-                    try {
-                        if (typeof parsedData === 'string') {
-                            parsedData = JSON.parse(parsedData);
-                        }
-                    } catch (e) {
-                        console.warn("Lỗi parse JSON cache:", e);
-                    }
-                }
-
-                // Gọi callback success với dữ liệu Cache
-                options.success(parsedData, "stale", jqXHR);
-            }
-        });
-
-        // 2. GHI ĐÈ SUCCESS: Âm thầm revalidate từ Server
-        const originalSuccess = options.success;
-        options.success = async function(data, textStatus, xhr) {
-            if (xhr.status === 200) {
-                const contentType = xhr.getResponseHeader('content-type') || 'application/json';
-                const dataText = (typeof data === 'object') ? JSON.stringify(data) : data;
-                
-                // Đọc lại cache cũ để so sánh trước khi ghi đè
-                const oldCache = await getFromCache(url);
-                const oldCacheText = oldCache ? oldCache.data : null;
-
-                // Cập nhật Cache mới vào IndexedDB
-                await saveToCache(url, dataText, contentType);
-
-                // So sánh data mới với data cũ, nếu có thay đổi thì gọi success lần 2 để đè UI
-                if (dataText !== oldCacheText && typeof originalSuccess === 'function') {
-                    originalSuccess(data, "revalidated", xhr);
-                }
-            }
-
-            syncNativeCookiesToStorage();
-        };
-
-        // 3. GHI ĐÈ ERROR: Bắt lỗi nếu request thất bại
-        const originalError = options.error;
-        options.error = function(xhr, textStatus, errorThrown) {
-            syncNativeCookiesToStorage();
-
-            if (typeof originalError === 'function') {
-                originalError(xhr, textStatus, errorThrown);
-            }
-        };
-    });
+	// -------------------------------------------------------------
+	// HOOK JQUERY AJAX (SWR + Async Cache)
+	// -------------------------------------------------------------
+	if (typeof $ !== 'undefined') {
+	    $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
+	        // Chỉ áp dụng cho request GET
+	        if (options.type && options.type.toUpperCase() !== 'GET') return;
+	
+	        const url = options.url;
+	
+	        // Đọc cache bất đồng bộ trước khi cho phép request tiếp tục
+	        getFromCache(url).then((cachedObj) => {
+	            // 1. NẾU CÓ CACHE: Trả data ngay lập tức cho UI
+	            if (cachedObj && typeof options.success === 'function') {
+	                let parsedData = cachedObj.data;
+	                
+	                if (
+	                    (cachedObj.contentType && cachedObj.contentType.includes('application/json')) ||
+	                    options.dataType === 'json'
+	                ) {
+	                    try {
+	                        if (typeof parsedData === 'string') {
+	                            parsedData = JSON.parse(parsedData);
+	                        }
+	                    } catch (e) {
+	                        console.warn("Lỗi parse JSON cache:", e);
+	                    }
+	                }
+	
+	                // Gọi callback success với dữ liệu Cache
+	                options.success(parsedData, "stale", jqXHR);
+	            }
+	        });
+	
+	        // 2. GHI ĐÈ SUCCESS: Âm thầm revalidate từ Server
+	        const originalSuccess = options.success;
+	        options.success = async function(data, textStatus, xhr) {
+	            if (xhr.status === 200) {
+	                const contentType = xhr.getResponseHeader('content-type') || 'application/json';
+	                const dataText = (typeof data === 'object') ? JSON.stringify(data) : data;
+	                
+	                // Đọc lại cache cũ để so sánh trước khi ghi đè
+	                const oldCache = await getFromCache(url);
+	                const oldCacheText = oldCache ? oldCache.data : null;
+	
+	                // Cập nhật Cache mới vào IndexedDB
+	                await saveToCache(url, dataText, contentType);
+	
+	                // So sánh data mới với data cũ, nếu có thay đổi thì gọi success lần 2 để đè UI
+	                if (dataText !== oldCacheText && typeof originalSuccess === 'function') {
+	                    originalSuccess(data, "revalidated", xhr);
+	                }
+	            }
+	
+	            syncNativeCookiesToStorage();
+	        };
+	
+	        // 3. GHI ĐÈ ERROR: Bắt lỗi nếu request thất bại
+	        const originalError = options.error;
+	        options.error = function(xhr, textStatus, errorThrown) {
+	            syncNativeCookiesToStorage();
+	
+	            if (typeof originalError === 'function') {
+	                originalError(xhr, textStatus, errorThrown);
+	            }
+	        };
+	    });
+	}
 }
 		
 		// Sync ngay 1 lần khi bắt đầu tải trang
@@ -3669,17 +3669,87 @@ const SCAN_INTERVALS = {
 };
 let currentScanDelay = SCAN_INTERVALS.NORMAL;
 
+// =========================================================================
+// 🚀 HỆ THỐNG QUẢN LÝ BỘ NHỚ BẤT ĐỒNG BỘ INDEXEDDB (THAY THẾ LOCALSTORAGE)
+// =========================================================================
+function openNotiDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('NotificationAppDB', 1);
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains('noti_store')) {
+                db.createObjectStore('noti_store');
+            }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function getNotiStorage(key, defaultValue) {
+    try {
+        const db = await openNotiDB();
+        return new Promise((resolve) => {
+            const tx = db.transaction('noti_store', 'readonly');
+            const store = tx.objectStore('noti_store');
+            const req = store.get(key);
+            req.onsuccess = () => resolve(req.result !== undefined ? req.result : defaultValue);
+            req.onerror = () => resolve(defaultValue);
+        });
+    } catch (e) {
+        return defaultValue;
+    }
+}
+
+async function setNotiStorage(key, value) {
+    try {
+        const db = await openNotiDB();
+        const tx = db.transaction('noti_store', 'readwrite');
+        const store = tx.objectStore('noti_store');
+        store.put(value, key);
+    } catch (e) {
+        console.error("Lỗi ghi IndexedDB key:", key, e);
+    }
+}
+
+async function removeNotiStorage(key) {
+    try {
+        const db = await openNotiDB();
+        const tx = db.transaction('noti_store', 'readwrite');
+        const store = tx.objectStore('noti_store');
+        store.delete(key);
+    } catch (e) {
+        console.error("Lỗi xóa IndexedDB key:", key, e);
+    }
+}
+
+// Khởi tạo các mảng dữ liệu toàn cục ban đầu
+window.cachedNotifications = [];
+window.clearedNotiIds = [];
+
+// Hàm khởi tạo nạp dữ liệu từ IndexedDB lúc ban đầu
+async function initNotificationStorage() {
+    window.cachedNotifications = await getNotiStorage("cached_noti_list", []);
+    window.clearedNotiIds = await getNotiStorage("cleared_noti_ids", []);
+
+    // Giới hạn mảng Blacklist tối đa 50 tin gần nhất để nhẹ máy
+    if (window.clearedNotiIds.length > 50) {
+        window.clearedNotiIds = window.clearedNotiIds.slice(0, 50);
+        await setNotiStorage("cleared_noti_ids", window.clearedNotiIds);
+    }
+}
+
+// Gọi nạp dữ liệu khởi tạo
+initNotificationStorage();
+
 // Mảng 1: Danh sách các thông báo đang hiển thị trên Modal
-window.cachedNotifications = JSON.parse(localStorage.getItem("cached_noti_list")) || [];
+// (Đã được nạp bất đồng bộ qua initNotificationStorage)
 
 // 🔥 MẢNG 2 (MỚI): Danh sách các ID thông báo ĐÃ CLICK XÓA (Lưu localStorage để ko bị mất khi F5)
-window.clearedNotiIds = JSON.parse(localStorage.getItem("cleared_noti_ids")) || [];
+// (Đã được nạp bất đồng bộ qua initNotificationStorage)
 
 // Giới hạn mảng Blacklist tối đa 50 tin gần nhất để nhẹ máy
-if (window.clearedNotiIds.length > 50) {
-    window.clearedNotiIds = window.clearedNotiIds.slice(0, 50);
-    localStorage.setItem("cleared_noti_ids", JSON.stringify(window.clearedNotiIds));
-}
+// (Đã tích hợp trong initNotificationStorage)
 
 function update3Block(dontUpdateBlock1=false){
 	setTimeout(()=>{
@@ -3843,7 +3913,7 @@ function clickNotiLink(event, url, clickedId) {
 	}
 };
 
-function deleteOneNotificationRedis(event, notiId) {
+async function deleteOneNotificationRedis(event, notiId) {
     // 🛡️ CHỐT CHẶN VÀNG: Cô lập cú click, không cho ảnh hưởng lên khung nền mờ (Overlay)
     if (event) {
         event.preventDefault();
@@ -3857,15 +3927,16 @@ function deleteOneNotificationRedis(event, notiId) {
 
     // 1. Đồng bộ Giao diện trước (RAM & Session) để tài xế thấy hiệu ứng mất tin ngay lập tức (0ms)
     window.cachedNotifications = window.cachedNotifications.filter(noti => noti.id !== notiId);
-    localStorage.setItem("cached_noti_list", JSON.stringify(window.cachedNotifications));
+    await setNotiStorage("cached_noti_list", window.cachedNotifications);
     
     // Nạp ID này vào danh sách đen (Blacklist) tạm thời của phiên để bảo hiểm hàm quét nền không bốc trúng lại
     if (!window.clearedNotiIds.includes(notiId)) {
         window.clearedNotiIds.push(notiId);
+        await setNotiStorage("cleared_noti_ids", window.clearedNotiIds);
     }
 
     // Vẽ lại giao diện Modal ngay lập tức sau khi đã lọc bỏ tin
-    renderModalFromCache();
+    await renderModalFromCache();
 
     // 2. Bắn lệnh ngầm lên Server để đồng bộ xóa vĩnh viễn trên Redis
     const params = new URLSearchParams();
@@ -3891,7 +3962,7 @@ function deleteOneNotificationRedis(event, notiId) {
     });
 }
 
-function deleteAllNotificationsRedis(event) {
+async function deleteAllNotificationsRedis(event) {
     // 🛡️ CHỐT CHẶN VÀNG: Cô lập cú click, không cho ảnh hưởng lên khung nền mờ (Overlay)
     if (event) {
         event.preventDefault();
@@ -3907,12 +3978,13 @@ function deleteAllNotificationsRedis(event) {
     window.cachedNotifications = [];
 
     // 2. Xóa bỏ hoàn toàn key lưu trữ trong localStorage
-    localStorage.removeItem("cached_noti_list");
-    localStorage.removeItem("last_processed_noti_id");
+    await removeNotiStorage("cached_noti_list");
+    await removeNotiStorage("last_processed_noti_id");
 
     // 3. Nếu bạn có danh sách Blacklist (mảng chứa các ID đã xóa), hãy làm sạch nó luôn
     if (Array.isArray(window.clearedNotiIds)) {
         window.clearedNotiIds = [];
+        await setNotiStorage("cleared_noti_ids", []);
     }
 
     // Đóng Modal thông báo lại luôn vì không còn tin nào để xem
@@ -3941,12 +4013,13 @@ function deleteAllNotificationsRedis(event) {
     });
 }
 
-function renderModalFromCache() {
-	if(localStorage.getItem("read_latest_noti") == 1 && !isActiveViewing){
+async function renderModalFromCache() {
+	const readLatest = await getNotiStorage("read_latest_noti", 0);
+	if(readLatest == 1 && !isActiveViewing){
 		closeNotificationModal();
 		return;
 	}
-	localStorage.setItem("read_latest_noti", 1);
+	await setNotiStorage("read_latest_noti", 1);
 	
     if (window.cachedNotifications.length === 0 && !isActiveViewing) {
         closeNotificationModal();
@@ -4013,164 +4086,6 @@ function toggleNotificationModal() {
     }
 };
 
-function scanAndExecuteNotificationRedisOld() {
-    // Xóa timer cũ nếu có để tránh chạy đúp khi re-run
-    clearTimeout(foregroundScanner);
-
-    if (document.visibilityState !== "visible") {
-        foregroundScanner = setTimeout(scanAndExecuteNotificationRedis, SCAN_INTERVALS.BACKGROUND);
-        return;
-    }
-
-    // =========================================================================
-    // 🔥 ĐỘT PHÁ SIÊU CẤP: BỐC DATA TẬP TRUNG TỪ REDIS QUA API HTTP
-    // =========================================================================
-    fetch(`https://www.xeghep.cc/notifi/send/get-noti-redis.php?userID=${currentUserID}`, {
-		method: 'GET',
-		credentials: 'include',
-		headers: {
-			'X-Requested-With': 'XMLHttpRequest',
-			'Content-Type': 'application/json'
-		}
-		})
-        .then(res => res.json())
-        .then(data => {
-            let hasNewFromRedis = false;
-            let currentScanDelay = SCAN_INTERVALS.NORMAL; // Khởi tạo biến delay cục bộ bên trong khối nhận data
-
-            if (data.notifications && data.notifications.length > 0) {
-                
-                // Duyệt qua danh sách tin trả về từ hàng đợi Redis
-                data.notifications.forEach(item => {
-                    
-                    // Kiểm tra trùng lặp với mảng hiển thị RAM hiện tại và danh sách đã xóa (Blacklist)
-                    const isExist = window.cachedNotifications.some(noti => noti.id === item.id);
-                    const isCleared = window.clearedNotiIds.includes(item.id);
-
-                    if (!isExist && !isCleared) {
-                        // Nhét lên đầu mảng RAM hiển thị
-                        window.cachedNotifications.unshift(item);
-                        hasNewFromRedis = true;
-                    }
-                });
-            }
-
-            if (hasNewFromRedis) {
-                // Tăng tốc độ quét chu kỳ sau lên 500ms vì đang nổ đơn dồn dập
-                currentScanDelay = SCAN_INTERVALS.FAST;
-                
-                // Đồng bộ bộ nhớ chống F5
-                localStorage.setItem("cached_noti_list", JSON.stringify(window.cachedNotifications));
-                
-                // Vẽ lại giao diện Modal lập tức trước mắt tài xế
-				localStorage.setItem("read_latest_noti", 0);
-                renderModalFromCache();
-            } else {
-                // Trả về tốc độ 2 giây thong thả để tiết kiệm pin mát máy
-                currentScanDelay = SCAN_INTERVALS.NORMAL;
-            }
-            
-			// =========================================================================
-            // 🔔 ĐOẠN CODE QUÉT KHAY THÔNG BÁO HỆ THỐNG HỆ ĐIỀU HÀNH (CHỐT CHẶN 2)
-            // =========================================================================
-            if ("navigator" in window && "serviceWorker" in navigator) {
-                navigator.serviceWorker.ready.then(registration => {
-                    return registration.getNotifications();
-                }).then(notifications => {
-                    // Chốt chặn 2.1: Nếu ngoài khay trống trơn
-                    if (!notifications || notifications.length === 0) {
-                        if (window.cachedNotifications.length === 0 && !isActiveViewing) {
-                            localStorage.removeItem("last_processed_noti_id");
-                            closeNotificationModal();
-                        }
-                        // Đoạn setTimeout cũ ở đây đã được đưa xuống Chốt Chặn Bảo Hiểm bên dưới để tránh kẹt Promise
-                        return;
-                    }
-
-                    // Chốt chặn 2.2: Bảo hiểm tối cao. Nếu lượt này vế trên VỪA ăn được dữ liệu thành công rồi,
-                    // ta chủ động đóng sạch bong bóng thông báo trùng ngoài khay để làm sạch thiết bị.
-                    if (hasNewFromRedis) {
-                        notifications.forEach(noti => {noti.close();});
-                        // Ép delay chu kỳ tiếp theo thành FAST
-                        currentScanDelay = SCAN_INTERVALS.FAST;
-                        return;
-					}
-
-                    // KỊCH BẢN: CÓ THÔNG BÁO MỚI XUẤT HIỆN TRÊN KHAY (Ví dụ tài xế vừa bật sáng màn hình lên)
-                    const firstNoti = notifications[0];
-                    const targetUrl = firstNoti.data?.url;
-                    const notiId = firstNoti.data?.noti_unique_id || (targetUrl + "_" + firstNoti.title);
-                    const processedId = localStorage.getItem("last_processed_noti_id");
-                    
-                    // Nếu thông báo này đã từng được bốc và xử lý ở chu kỳ trước -> Bỏ qua luôn
-                    if (processedId === notiId) {
-                        return;
-                    }
-
-                    console.log("🔔 Phát hiện biến động ngoài khay hệ thống! Đang đồng bộ...");
-                    localStorage.setItem("last_processed_noti_id", notiId);
-
-                    let newTicketsInThisTurn = [];
-
-                    // Duyệt dọc khay thông báo hệ thống
-                    notifications.forEach(noti => {
-                        const url = noti.data?.url || "#";
-                        const currentNotiId = noti.data?.noti_unique_id || (url + "_" + noti.title);
-                        
-                        // Kiểm tra xem tin này tài xế đã từng ấn xóa bỏ (Blacklist) trước đó chưa
-                        const isClearedBefore = window.clearedNotiIds.includes(currentNotiId);
-                        if (isClearedBefore) {
-                            noti.close();
-                            return; 
-                        }
-
-                        // Kiểm tra xem tin ngoài khay này đã được đưa vào mảng hiển thị RAM chưa
-                        const isExist = window.cachedNotifications.some(item => item.id === currentNotiId);
-                        
-                        if (!isExist) {
-                            // ✅ CHỈ BỐC TIN CHƯA CÓ VÀO MẢNG ĐỢI LƯỢT NÀY
-                            newTicketsInThisTurn.push({
-                                id: currentNotiId,
-                                title: noti.title || "Thông báo",
-                                body: noti.body || "Nội dung trống",
-                                url: url
-                            });
-                        }
-
-                        // Hút dữ liệu xong đến đâu, dọn sạch khay đến đó
-                        noti.close(); 
-                    });
-
-                    // Gộp cụm tin mới từ khay ra ĐẦU danh sách hiển thị (Xếp trên cùng của tháp)
-                    if (newTicketsInThisTurn.length > 0) {
-                        window.cachedNotifications = [...newTicketsInThisTurn, ...window.cachedNotifications];
-                        
-                        // Đồng bộ bộ nhớ chống tài xế ấn F5 refresh trang
-                        localStorage.setItem("cached_noti_list", JSON.stringify(window.cachedNotifications));
-                        
-                        // Vẽ lại giao diện Modal lập tức
-                        renderModalFromCache();
-                    }
-
-                    // Nếu ngoài khay vừa có biến động xử lý mượt mà, ép chu kỳ sau duy trì tốc độ cao
-                    currentScanDelay = SCAN_INTERVALS.FAST;
-                }).catch(err => {
-                    console.error("Lỗi hệ thống tuần tra khay thông báo:", err);
-                });
-            }
-
-            // =========================================================================
-            // 🛡️ CHỐT CHẶN BẢO HIỂM TOÀN DIỆN CHO IOS CŨ:
-            // Luôn luôn gọi lại setTimeout tại đây, bất kể Service Worker có bị kẹt hay treo Promise.
-            // =========================================================================
-            foregroundScanner = setTimeout(scanAndExecuteNotificationRedis, currentScanDelay);
-
-        }).catch(err => {
-            console.error("Lỗi kết nối API Redis:", err);
-            foregroundScanner = setTimeout(scanAndExecuteNotificationRedis, SCAN_INTERVALS.NORMAL);
-        });
-}
-
 // Khai báo Controller toàn cục để có thể hủy request trước đó
 let notificationAbortController = null;
 
@@ -4221,7 +4136,7 @@ function scanAndExecuteNotificationRedis() {
         clearTimeout(fetchTimeout); // Xóa Timeout khi có phản hồi từ server
         return res.json();
     })
-    .then(data => {
+    .then(async data => {
         let hasNewFromRedis = false;
         let currentScanDelay = SCAN_INTERVALS.NORMAL; 
 
@@ -4240,9 +4155,9 @@ function scanAndExecuteNotificationRedis() {
 
         if (hasNewFromRedis) {
             currentScanDelay = SCAN_INTERVALS.FAST;
-            localStorage.setItem("cached_noti_list", JSON.stringify(window.cachedNotifications));
-            localStorage.setItem("read_latest_noti", 0);
-            renderModalFromCache();
+            await setNotiStorage("cached_noti_list", window.cachedNotifications);
+            await setNotiStorage("read_latest_noti", 0);
+            await renderModalFromCache();
         } else {
             currentScanDelay = SCAN_INTERVALS.NORMAL;
         }
@@ -4257,10 +4172,10 @@ function scanAndExecuteNotificationRedis() {
                     return []; // Trả về mảng rỗng an toàn cho Native WebView
                 }
                 return registration.getNotifications();
-            }).then(notifications => {
+            }).then(async notifications => {
                 if (!notifications || notifications.length === 0) {
                     if (window.cachedNotifications.length === 0 && !isActiveViewing) {
-                        localStorage.removeItem("last_processed_noti_id");
+                        await removeNotiStorage("last_processed_noti_id");
                         closeNotificationModal();
                     }
                     return;
@@ -4279,14 +4194,14 @@ function scanAndExecuteNotificationRedis() {
                 const firstNoti = notifications[0];
                 const targetUrl = firstNoti.data?.url;
                 const notiId = firstNoti.data?.noti_unique_id || (targetUrl + "_" + firstNoti.title);
-                const processedId = localStorage.getItem("last_processed_noti_id");
+                const processedId = await getNotiStorage("last_processed_noti_id", null);
 
                 if (processedId === notiId) {
                     return;
                 }
 
                 console.log("🔔 Phát hiện biến động ngoài khay hệ thống PWA! Đang đồng bộ...");
-                localStorage.setItem("last_processed_noti_id", notiId);
+                await setNotiStorage("last_processed_noti_id", notiId);
 
                 let newTicketsInThisTurn = [];
 
@@ -4315,8 +4230,8 @@ function scanAndExecuteNotificationRedis() {
 
                 if (newTicketsInThisTurn.length > 0) {
                     window.cachedNotifications = [...newTicketsInThisTurn, ...window.cachedNotifications];
-                    localStorage.setItem("cached_noti_list", JSON.stringify(window.cachedNotifications));
-                    renderModalFromCache();
+                    await setNotiStorage("cached_noti_list", window.cachedNotifications);
+                    await renderModalFromCache();
                 }
 
                 currentScanDelay = SCAN_INTERVALS.FAST;
@@ -4341,8 +4256,6 @@ function scanAndExecuteNotificationRedis() {
         foregroundScanner = setTimeout(scanAndExecuteNotificationRedis, SCAN_INTERVALS.NORMAL);
     });
 }
-
-
 
 const chatModal = document.getElementById('chatModal');
 const initChatBtn = document.getElementById('initChatBtn');
