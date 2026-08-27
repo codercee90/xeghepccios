@@ -3703,9 +3703,9 @@ const SCAN_INTERVALS = {
 };
 let currentScanDelay = SCAN_INTERVALS.NORMAL;
 
-// =========================================================================
-// 🚀 HỆ THỐNG QUẢN LÝ BỘ NHỚ BẤT ĐỒNG BỘ INDEXEDDB (THAY THẾ LOCALSTORAGE)
-// =========================================================================
+// -------------------------------------------------------------
+// KHỞI TẠO BỘ NHỚ INDEXEDDB
+// -------------------------------------------------------------
 function openNotiDB() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open('NotificationAppDB', 1);
@@ -3720,6 +3720,7 @@ function openNotiDB() {
     });
 }
 
+// 1. Hàm đọc dữ liệu
 async function getNotiStorage(key, defaultValue) {
     try {
         const db = await openNotiDB();
@@ -3735,17 +3736,60 @@ async function getNotiStorage(key, defaultValue) {
     }
 }
 
+// 2. Hàm ghi dữ liệu (Nâng cấp tự động giữ 50 thông báo mới nhất)
 async function setNotiStorage(key, value) {
     try {
+        let finalValue = value;
+
+        // Nếu dữ liệu truyền vào là danh sách mảng thông báo
+        if (Array.isArray(value)) {
+            // Trường hợp 1: Nếu phần tử có trường timestamp/created_at -> sắp xếp giảm dần rồi lấy 50 phần tử đầu
+            if (value.length > 0 && typeof value[0] === 'object' && value[0] !== null) {
+                const hasTime = value[0].timestamp || value[0].created_at || value[0].createdAt;
+                if (hasTime) {
+                    value.sort((a, b) => {
+                        const timeA = a.timestamp || a.created_at || a.createdAt || 0;
+                        const timeB = b.timestamp || b.created_at || b.createdAt || 0;
+                        return new Date(timeB) - new Date(timeA); // Mới nhất lên đầu
+                    });
+                }
+            }
+            
+            // Cắt lấy tối đa 50 thông báo gần nhất
+            finalValue = value.slice(0, 50);
+        }
+
         const db = await openNotiDB();
         const tx = db.transaction('noti_store', 'readwrite');
         const store = tx.objectStore('noti_store');
-        store.put(value, key);
+        
+        await new Promise((resolve, reject) => {
+            const req = store.put(finalValue, key);
+            req.onsuccess = resolve;
+            req.onerror = reject;
+        });
+
     } catch (e) {
         console.error("Lỗi ghi IndexedDB key:", key, e);
     }
 }
 
+// 3. Hàm thêm nhanh 1 thông báo lẻ vào danh sách (Gợi ý thêm)
+async function pushNotification(key, newNoti) {
+    try {
+        const currentList = await getNotiStorage(key, []);
+        if (Array.isArray(currentList)) {
+            // Thêm thông báo mới vào đầu mảng
+            currentList.unshift(newNoti);
+            // Lưu lại (hàm setNotiStorage sẽ tự động cắt còn 50)
+            await setNotiStorage(key, currentList);
+        }
+    } catch (e) {
+        console.error("Lỗi thêm thông báo mới:", e);
+    }
+}
+
+// 4. Hàm xóa dữ liệu theo Key
 async function removeNotiStorage(key) {
     try {
         const db = await openNotiDB();
