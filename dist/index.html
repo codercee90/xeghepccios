@@ -900,16 +900,25 @@
 		}*/
 
 // -------------------------------------------------------------
-// KHỞI TẠO BỘ NHỚ INDEXEDDB (Thay thế localStorage)
+// KHỞI TẠO BỘ NHỚ INDEXEDDB
 // -------------------------------------------------------------
 function openCacheDB() {
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open('AppCacheDB', 1);
+        // Tăng version lên 2 để trigger update (thêm Index)
+        const request = indexedDB.open('AppCacheDB', 2);
         
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
+            let store;
             if (!db.objectStoreNames.contains('http_cache')) {
-                db.createObjectStore('http_cache', { keyPath: 'url' });
+                store = db.createObjectStore('http_cache', { keyPath: 'url' });
+            } else {
+                store = event.target.transaction.objectStore('http_cache');
+            }
+            
+            // Tạo index cho timestamp để dễ dàng sắp xếp & lọc item cũ nhất
+            if (!store.indexNames.contains('timestamp')) {
+                store.createIndex('timestamp', 'timestamp', { unique: false });
             }
         };
         
@@ -918,25 +927,51 @@ function openCacheDB() {
     });
 }
 
-// 1. Nâng cấp hàm saveToCache (Async)
+// 1. Nâng cấp hàm saveToCache (Tự động giữ tối đa 50 item)
 async function saveToCache(url, dataText, contentType) {
     try {
         const db = await openCacheDB();
         const transaction = db.transaction('http_cache', 'readwrite');
         const store = transaction.objectStore('http_cache');
         
-        store.put({
-            url: 'cap_cache_' + url,
-            timestamp: Date.now(),
-            contentType: contentType || 'application/json',
-            data: dataText
+        // Lưu/Cập nhật item mới
+        await new Promise((resolve, reject) => {
+            const req = store.put({
+                url: 'cap_cache_' + url,
+                timestamp: Date.now(),
+                contentType: contentType || 'application/json',
+                data: dataText
+            });
+            req.onsuccess = resolve;
+            req.onerror = reject;
         });
+
+        // Kiểm tra số lượng và dọn dẹp các item cũ nếu vượt quá 50
+        const countRequest = store.count();
+        countRequest.onsuccess = () => {
+            const count = countRequest.result;
+            if (count > 50) {
+                const itemsToDelete = count - 50;
+                const index = store.index('timestamp');
+                let deletedCount = 0;
+
+                // Duyệt qua index từ cũ nhất đến mới nhất
+                index.openCursor().onsuccess = (e) => {
+                    const cursor = e.target.result;
+                    if (cursor && deletedCount < itemsToDelete) {
+                        cursor.delete(); // Xóa item cũ nhất
+                        deletedCount++;
+                        cursor.continue();
+                    }
+                };
+            }
+        };
     } catch (e) {
         console.error("Lỗi ghi Cache:", e);
     }
 }
 
-// 2. Hàm đọc Cache (Async)
+// 2. Hàm đọc Cache (Giữ nguyên)
 async function getFromCache(url) {
     try {
         const db = await openCacheDB();
@@ -949,7 +984,6 @@ async function getFromCache(url) {
                 const cached = request.result;
                 if (!cached) return resolve(null);
                 
-                // Trả về object đúng định dạng { contentType, data, timestamp }
                 resolve({
                     timestamp: cached.timestamp,
                     contentType: cached.contentType,
