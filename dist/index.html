@@ -5119,33 +5119,33 @@ async function resetHoanToanPWACache(updateOnly=false) {
     }
 
     // 3. Xóa sạch IndexedDB, LocalStorage và SessionStorage
-if (updateOnly === false) {
-    // 1. Xóa toàn bộ IndexedDB bằng await
-    if (window.indexedDB && indexedDB.databases) {
-        try {
-            const dbs = await indexedDB.databases();
-            await Promise.all(
-                dbs.map(db => {
-                    if (db.name) {
-                        return new Promise((resolve, reject) => {
-                            const req = indexedDB.deleteDatabase(db.name);
-                            req.onsuccess = () => resolve();
-                            req.onerror = () => reject(req.error);
-                            req.onblocked = () => resolve(); // Bỏ qua nếu bị block
-                        });
-                    }
-                })
-            );
-            console.log("Đã xóa tất cả IndexedDB");
-        } catch (e) {
-            console.error("Lỗi xóa IndexedDB:", e);
-        }
-    }
-
-    // 2. Xóa localStorage & sessionStorage (Lệnh đồng bộ, thực thi ngay lập tức)
-    localStorage.clear();
-    sessionStorage.clear();
-}
+	if (updateOnly === false) {
+	    // 1. Xóa toàn bộ IndexedDB bằng await
+	    if (window.indexedDB && indexedDB.databases) {
+	        try {
+	            const dbs = await indexedDB.databases();
+	            await Promise.all(
+	                dbs.map(db => {
+	                    if (db.name) {
+	                        return new Promise((resolve, reject) => {
+	                            const req = indexedDB.deleteDatabase(db.name);
+	                            req.onsuccess = () => resolve();
+	                            req.onerror = () => reject(req.error);
+	                            req.onblocked = () => resolve(); // Bỏ qua nếu bị block
+	                        });
+	                    }
+	                })
+	            );
+	            console.log("Đã xóa tất cả IndexedDB");
+	        } catch (e) {
+	            console.error("Lỗi xóa IndexedDB:", e);
+	        }
+	    }
+	
+	    // 2. Xóa localStorage & sessionStorage (Lệnh đồng bộ, thực thi ngay lập tức)
+	    localStorage.clear();
+	    sessionStorage.clear();
+	}
 
 	// 4. Ép trình duyệt tải lại trang từ Server, bỏ qua bộ nhớ đệm
 	console.log("[PWA] Đã xóa sạch! Đang reload...");
