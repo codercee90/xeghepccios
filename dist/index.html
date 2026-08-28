@@ -1359,7 +1359,7 @@ if (isCapacitorEnv()) {
                 <span class="material-icons-round">drive_eta</span>
                 <span><strong>ĐẶT XE NGAY</strong></span>
             </div>
-            <div class="menu-item" onclick="toggleMenu(false);showAppNotification('ok', 'Đã cập nhật APP lên phiên bản mới nhất');setTimeout(()=>{resetHoanToanPWACache(true);}, 1000);return;update3Block();switchPage('home', null, document.getElementById('homeNavID'));">
+            <div class="menu-item" onclick="toggleMenu(false);showAppNotification('ok', 'Đã cập nhật APP lên phiên bản mới nhất');(async()=>{ await new Promise(r => setTimeout(r, 1000)); await resetHoanToanPWACache(true); update3Block(); switchPage('home', null, document.getElementById('homeNavID')); })();">
                 <span class="material-icons-round">system_update</span>
                 <span><strong>XeGhep.CC Ver1.0</strong></span>
             </div>
