@@ -4040,17 +4040,25 @@ async function deleteOneNotificationRedis(event, notiId) {
     });
 }
 
+let isDeletingNotifications = false;
 async function deleteAllNotificationsRedis(event) {
     // 🛡️ CHỐT CHẶN VÀNG: Cô lập cú click, không cho ảnh hưởng lên khung nền mờ (Overlay)
     if (event) {
         event.preventDefault();
         event.stopPropagation();
     }
+    
+    isDeletingNotifications = true;
 
 	clearTimeout(foregroundScanner);
 	console.log("⏱️ Đã xóa chu kỳ quét cũ để chuẩn bị ép quét nhanh.");
 	
     console.log("🎬 Bắt đầu xóa sạch sành sanh khay thông báo...");
+    
+    if (notificationAbortController) {
+        notificationAbortController.abort();
+        console.log("🚫 Đã hủy lượt quét ngầm đang chạy dở dang.");
+    }
 
     // 1. Xóa sạch mảng lưu trong bộ nhớ RAM của Frontend
     window.cachedNotifications = [];
@@ -4073,22 +4081,28 @@ async function deleteAllNotificationsRedis(event) {
     params.append('userID', currentUserID);
     params.append('action', 'delete_all');
 
-    fetch('https://www.xeghep.cc/notifi/send/delete-noti-redis.php', {
-        method: 'POST',
-		credentials: 'include',
-        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params.toString()
-    })
-    .then(res => res.json())
-    .then(resData => {
+    try {
+        const res = await fetch('https://www.xeghep.cc/notifi/send/delete-noti-redis.php', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 
+                'X-Requested-With': 'XMLHttpRequest', 
+                'Content-Type': 'application/x-www-form-urlencoded' 
+            },
+            body: params.toString()
+        });
+        const resData = await res.json();
         console.log("✅ Kết quả xóa sạch từ Redis Server:", resData.message);
-    })
-    .catch(err => {
+    } catch (err) {
         console.error("❌ Lỗi kết nối API xóa sạch:", err);
-    })
-	.finally(() => {
-        foregroundScanner = setTimeout(scanAndExecuteNotificationRedis, SCAN_INTERVALS.FAST);
-    });
+    } finally {
+        // 🚩 4. TẮT CỜ KHÓA & BẬT LẠI SCANNER
+        // Đặt delay nhỏ (ví dụ 300ms) để đảm bảo Backend Redis đã giải phóng hết key hoàn toàn
+        setTimeout(() => {
+            isDeletingNotifications = false;
+            foregroundScanner = setTimeout(scanAndExecuteNotificationRedis, SCAN_INTERVALS.FAST);
+        }, 300);
+    }
 }
 
 async function renderModalFromCache() {
@@ -4168,7 +4182,12 @@ function toggleNotificationModal() {
 let notificationAbortController = null;
 
 function scanAndExecuteNotificationRedis() {
-	// 🛡️ CHỐT CHẶN MẤT MẠNG: Dừng ngay lập tức, không thao tác gì với DOM/Nút/Loading
+    if (isDeletingNotifications) {
+        console.log("⏳ Bỏ qua lượt quét vì đang trong quá trình xóa sạch thông báo.");
+        return;
+    }
+    
+    // 🛡️ CHỐT CHẶN MẤT MẠNG: Dừng ngay lập tức, không thao tác gì với DOM/Nút/Loading
     if (!navigator.onLine) {
         showAppNotification('error', '<i class="fa fa-exclamation-circle"></i> Không có kết nối Internet');
         return; // Thoát ngay, giữ nguyên hiện trạng giao diện
