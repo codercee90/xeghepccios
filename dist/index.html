@@ -4236,6 +4236,7 @@ function scanAndExecuteNotificationRedis() {
             await setNotiStorage("cached_noti_list", window.cachedNotifications);
             await setNotiStorage("read_latest_noti", 0);
             await renderModalFromCache();
+												isActiveViewing = true;
         } else {
             currentScanDelay = SCAN_INTERVALS.NORMAL;
         }
@@ -4310,6 +4311,7 @@ function scanAndExecuteNotificationRedis() {
                     window.cachedNotifications = [...newTicketsInThisTurn, ...window.cachedNotifications];
                     await setNotiStorage("cached_noti_list", window.cachedNotifications);
                     await renderModalFromCache();
+																				isActiveViewing = true;
                 }
 
                 currentScanDelay = SCAN_INTERVALS.FAST;
