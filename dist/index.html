@@ -1292,13 +1292,13 @@ if (isCapacitorEnv()) {
 <!-- Chèn thư viện Capacitor Core & Geolocation (Nếu chạy trên PWA/TWA nó sẽ tự bỏ qua không gây lỗi) -->
 <script src="https://cdn.jsdelivr.net/npm/@capacitor/core@latest/dist/capacitor.js"></script>
 
-<!--<script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
+<script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
 <script>
   // Khởi tạo vConsole để xem log ngay trên màn hình điện thoại
   if(fromApp === 'iosCapacitor'){
   var vConsole = new VConsole();
   }
-</script>-->
+</script>
 <!--<script>
   // Kiểm tra nếu trang đang chạy bên trong TWA
   if (document.referrer.includes('android-app://cc.xeghep.www.twa')) {
@@ -4041,6 +4041,7 @@ async function deleteOneNotificationRedis(event, notiId) {
 }
 
 let isDeletingNotifications = false;
+
 async function deleteAllNotificationsRedis(event) {
     // 🛡️ CHỐT CHẶN VÀNG: Cô lập cú click, không cho ảnh hưởng lên khung nền mờ (Overlay)
     if (event) {
@@ -4050,9 +4051,9 @@ async function deleteAllNotificationsRedis(event) {
     
     isDeletingNotifications = true;
 
-	clearTimeout(foregroundScanner);
-	console.log("⏱️ Đã xóa chu kỳ quét cũ để chuẩn bị ép quét nhanh.");
-	
+    clearTimeout(foregroundScanner);
+    console.log("⏱️ Đã xóa chu kỳ quét cũ để chuẩn bị ép quét nhanh.");
+    
     console.log("🎬 Bắt đầu xóa sạch sành sanh khay thông báo...");
     
     if (notificationAbortController) {
@@ -4060,18 +4061,17 @@ async function deleteAllNotificationsRedis(event) {
         console.log("🚫 Đã hủy lượt quét ngầm đang chạy dở dang.");
     }
 
-    // 1. Xóa sạch mảng lưu trong bộ nhớ RAM của Frontend
+    // 1. Xóa sạch mảng lưu trong bộ nhớ RAM của Frontend (Để HTML Modal rỗng ngay lập tức)
     window.cachedNotifications = [];
 
     // 2. Xóa bỏ hoàn toàn key lưu trữ trong localStorage
     await removeNotiStorage("cached_noti_list");
     await removeNotiStorage("last_processed_noti_id");
 
-    // 3. Nếu bạn có danh sách Blacklist (mảng chứa các ID đã xóa), hãy làm sạch nó luôn
-    if (Array.isArray(window.clearedNotiIds)) {
-        window.clearedNotiIds = [];
-        await setNotiStorage("cleared_noti_ids", []);
-    }
+    // 🚩 BẬT CỜ PENDING CLEAR ALL (LAZY RESET): 
+    // Giữ nguyên window.clearedNotiIds trong RAM làm lá chắn chặn thông báo cũ 
+    // cho đến khi chu kỳ quét mới xác nhận Server đã xử lý xong.
+    await setNotiStorage("is_pending_clear_all", true);
 
     // Đóng Modal thông báo lại luôn vì không còn tin nào để xem
     closeNotificationModal();
@@ -4096,12 +4096,10 @@ async function deleteAllNotificationsRedis(event) {
     } catch (err) {
         console.error("❌ Lỗi kết nối API xóa sạch:", err);
     } finally {
-        // 🚩 4. TẮT CỜ KHÓA & BẬT LẠI SCANNER
-        // Đặt delay nhỏ (ví dụ 300ms) để đảm bảo Backend Redis đã giải phóng hết key hoàn toàn
-        setTimeout(() => {
-            isDeletingNotifications = false;
-            foregroundScanner = setTimeout(scanAndExecuteNotificationRedis, SCAN_INTERVALS.FAST);
-        }, 5000);
+        // 🚩 4. TẮT CỜ KHÓA & ÉP QUÉT LẠI NGAY LẬP TỨC
+        // Bỏ hoàn toàn setTimeout 5000ms vì đã có cờ is_pending_clear_all bảo vệ
+        isDeletingNotifications = false;
+        scanAndExecuteNotificationRedis();
     }
 }
 
@@ -4234,6 +4232,28 @@ function scanAndExecuteNotificationRedis() {
         return res.json();
     })
     .then(async data => {
+        // =========================================================================
+        // 🚩 KIỂM TRA VÀ XỬ LÝ CỜ PENDING CLEAR ALL (LAZY RESET & CHẶN LỌC KÉP)
+        // =========================================================================
+        const isPendingClear = await getNotiStorage("is_pending_clear_all", false);
+
+        if (isPendingClear) {
+            console.log("🧹 Phát hiện cờ Pending Clear: Giải phóng clearedNotiIds và loại bỏ hoàn toàn dữ liệu cũ từ lượt quét này!");
+            
+            // 1. Giải phóng mảng chặn clearedNotiIds trong RAM và Storage
+            window.clearedNotiIds = [];
+            await setNotiStorage("cleared_noti_ids", []);
+
+            // 2. Tắt cờ đánh dấu
+            await removeNotiStorage("is_pending_clear_all");
+
+            // 🛡️ CHỐT CHẶN VÀNG: Ép mảng dữ liệu quét về RỖNG ở lượt này.
+            // Ngăn tuyệt đối dữ liệu chưa kịp xóa trên Server chui ngược vào window.cachedNotifications để render lại HTML!
+            if (data && data.notifications) {
+                data.notifications = []; 
+            }
+        }
+
         let hasNewFromRedis = false;
         let currentScanDelay = SCAN_INTERVALS.NORMAL; 
 
@@ -4255,7 +4275,7 @@ function scanAndExecuteNotificationRedis() {
             await setNotiStorage("cached_noti_list", window.cachedNotifications);
             await setNotiStorage("read_latest_noti", 0);
             await renderModalFromCache();
-												isActiveViewing = true;
+            isActiveViewing = true;
         } else {
             currentScanDelay = SCAN_INTERVALS.NORMAL;
         }
@@ -4330,7 +4350,7 @@ function scanAndExecuteNotificationRedis() {
                     window.cachedNotifications = [...newTicketsInThisTurn, ...window.cachedNotifications];
                     await setNotiStorage("cached_noti_list", window.cachedNotifications);
                     await renderModalFromCache();
-																				isActiveViewing = true;
+                    isActiveViewing = true;
                 }
 
                 currentScanDelay = SCAN_INTERVALS.FAST;
