@@ -863,7 +863,7 @@
 		let newNotifCount = 0;
 		let userRef = null;
 		let qrcodeInvite = null;
-		const versionNow = '1.0.58';
+		const versionNow = '1.0.59';
 		
 		// ==========================================
 		// 2. HÀM TỰ ĐỘNG SYNC COOKIE TỪ PHP VỀ LOCALSTORAGE
@@ -999,12 +999,70 @@ async function getFromCache(url) {
 }
 
 // -------------------------------------------------------------
-// HOOK FETCH linh hoạt JSON & HTML (SWR + Async Cache)
+// HÀM KHÔI PHỤC COOKIE TỪ LOCALSTORAGE NGƯỢC LẠI NATIVE
+// -------------------------------------------------------------
+async function forceRestoreCookies() {
+    if (isCapacitorEnv() && window.Capacitor?.Plugins?.CapacitorCookies) {
+        try {
+            const { CapacitorCookies } = window.Capacitor.Plugins;
+
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('cap_cookie_')) {
+                    const cookieName = key.replace('cap_cookie_', '');
+                    const cookieValue = localStorage.getItem(key);
+
+                    if (cookieValue) {
+                        const expiresDate = new Date();
+                        expiresDate.setDate(expiresDate.getDate() + 30);
+
+                        await CapacitorCookies.setCookie({
+                            url: 'https://www.xeghep.cc',
+                            key: cookieName,
+                            value: cookieValue,
+                            expires: expiresDate.toUTCString(),
+                        });
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Lỗi restore cookie:', e);
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// 1. LẮNG NGHE SỰ KIỆN NỀN (BACKGROUND -> FOREGROUND)
+// -------------------------------------------------------------
+if (isCapacitorEnv()) {
+    // Tự động Restore khi người dùng bật lại App từ Background
+    if (window.Capacitor?.Plugins?.App) {
+        window.Capacitor.Plugins.App.addListener('appStateChange', async (state) => {
+            if (state.isActive) {
+                await forceRestoreCookies();
+            }
+        });
+    }
+
+    // Backup listener bằng sự kiện visibilitychange tiêu chuẩn của trình duyệt/webview
+    document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState === 'visible') {
+            await forceRestoreCookies();
+        }
+    });
+}
+
+// -------------------------------------------------------------
+// 2. HOOK FETCH linh hoạt JSON & HTML (SWR + Async Cache)
 // -------------------------------------------------------------
 if (isCapacitorEnv()) {
     const originalFetch = window.fetch;
 
     window.fetch = async function(...args) {
+        // Đảm bảo request fetch luôn gửi kèm Credentials (Cookie)
+        if (!args[1]) args[1] = {};
+        args[1].credentials = args[1].credentials || 'include';
+
         const url = typeof args[0] === 'string' ? args[0] : args[0].url;
         const method = (args[1] && args[1].method) ? args[1].method.toUpperCase() : 'GET';
         
@@ -1055,79 +1113,75 @@ if (isCapacitorEnv()) {
 
         return networkPromise;
     };
+	
+    // -------------------------------------------------------------
+    // 3. HOOK JQUERY AJAX (SWR + Async Cache)
+    // -------------------------------------------------------------
+    if (typeof $ !== 'undefined') {
+        $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
+            options.xhrFields = options.xhrFields || {};
+            options.xhrFields.withCredentials = true;
 
-	// -------------------------------------------------------------
-	// HOOK JQUERY AJAX (SWR + Async Cache)
-	// -------------------------------------------------------------
-	if (typeof $ !== 'undefined') {
-	    $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
-	        // Chỉ áp dụng cho request GET
-	        if (options.type && options.type.toUpperCase() !== 'GET') return;
-	
-	        const url = options.url;
-	
-	        // Đọc cache bất đồng bộ trước khi cho phép request tiếp tục
-	        getFromCache(url).then((cachedObj) => {
-	            // 1. NẾU CÓ CACHE: Trả data ngay lập tức cho UI
-	            if (cachedObj && typeof options.success === 'function') {
-	                let parsedData = cachedObj.data;
-	                
-	                if (
-	                    (cachedObj.contentType && cachedObj.contentType.includes('application/json')) ||
-	                    options.dataType === 'json'
-	                ) {
-	                    try {
-	                        if (typeof parsedData === 'string') {
-	                            parsedData = JSON.parse(parsedData);
-	                        }
-	                    } catch (e) {
-	                        console.warn("Lỗi parse JSON cache:", e);
-	                    }
-	                }
-	
-	                // Gọi callback success với dữ liệu Cache
-	                options.success(parsedData, "stale", jqXHR);
-	            }
-	        });
-	
-	        // 2. GHI ĐÈ SUCCESS: Âm thầm revalidate từ Server
-	        const originalSuccess = options.success;
-	        options.success = async function(data, textStatus, xhr) {
-	            if (xhr.status === 200) {
-	                const contentType = xhr.getResponseHeader('content-type') || 'application/json';
-	                const dataText = (typeof data === 'object') ? JSON.stringify(data) : data;
-	                
-	                // Đọc lại cache cũ để so sánh trước khi ghi đè
-	                const oldCache = await getFromCache(url);
-	                const oldCacheText = oldCache ? oldCache.data : null;
-	
-	                // Cập nhật Cache mới vào IndexedDB
-	                await saveToCache(url, dataText, contentType);
-	
-	                // So sánh data mới với data cũ, nếu có thay đổi thì gọi success lần 2 để đè UI
-	                if (dataText !== oldCacheText && typeof originalSuccess === 'function') {
-	                    originalSuccess(data, "revalidated", xhr);
-	                }
-	            }
-	
-	            syncNativeCookiesToStorage();
-	        };
-	
-	        // 3. GHI ĐÈ ERROR: Bắt lỗi nếu request thất bại
-	        const originalError = options.error;
-	        options.error = function(xhr, textStatus, errorThrown) {
-	            syncNativeCookiesToStorage();
-	
-	            if (typeof originalError === 'function') {
-	                originalError(xhr, textStatus, errorThrown);
-	            }
-	        };
-	    });
-	}
+            if (options.type && options.type.toUpperCase() !== 'GET') return;
+
+            const url = options.url;
+
+            getFromCache(url).then((cachedObj) => {
+                if (cachedObj && typeof options.success === 'function') {
+                    let parsedData = cachedObj.data;
+                    
+                    if (
+                        (cachedObj.contentType && cachedObj.contentType.includes('application/json')) ||
+                        options.dataType === 'json'
+                    ) {
+                        try {
+                            if (typeof parsedData === 'string') {
+                                parsedData = JSON.parse(parsedData);
+                            }
+                        } catch (e) {
+                            console.warn("Lỗi parse JSON cache:", e);
+                        }
+                    }
+
+                    options.success(parsedData, "stale", jqXHR);
+                }
+            });
+
+            const originalSuccess = options.success;
+            options.success = async function(data, textStatus, xhr) {
+                if (xhr.status === 200) {
+                    const contentType = xhr.getResponseHeader('content-type') || 'application/json';
+                    const dataText = (typeof data === 'object') ? JSON.stringify(data) : data;
+                    
+                    const oldCache = await getFromCache(url);
+                    const oldCacheText = oldCache ? oldCache.data : null;
+
+                    await saveToCache(url, dataText, contentType);
+
+                    if (dataText !== oldCacheText && typeof originalSuccess === 'function') {
+                        originalSuccess(data, "revalidated", xhr);
+                    }
+                }
+
+                syncNativeCookiesToStorage();
+            };
+
+            const originalError = options.error;
+            options.error = function(xhr, textStatus, errorThrown) {
+                syncNativeCookiesToStorage();
+
+                if (typeof originalError === 'function') {
+                    originalError(xhr, textStatus, errorThrown);
+                }
+            };
+        });
+    }
 }
-		
-		// Sync ngay 1 lần khi bắt đầu tải trang
-		syncNativeCookiesToStorage();
+
+// Khởi tạo chạy ngay khi vừa load webview
+forceRestoreCookies().then(() => {
+    syncNativeCookiesToStorage();
+});
 
 		// ==========================================
 		// 3. BỘ 3 HÀM XỬ LÝ COOKIE ĐỒNG BỘ (GET / SET / ERASE)
@@ -3831,7 +3885,7 @@ initNotificationStorage();
 
 function update3Block(dontUpdateBlock1=false){
 	setTimeout(()=>{
-		sendAjaxRequest('https://www.xeghep.cc/AjaxLoad.php', 'GET', null, { act: '3Block', rand: Date.now() }, function(data) {var dataSplit=data.split(pfxSplitCallback);if(dontUpdateBlock1 === false){updateBlockSmoothly(`page-home`, dataSplit[0]);}updateBlockSmoothly(`side-menu`, dataSplit[1]);updateBlockSmoothly(`page-profile`, dataSplit[2]);updateBlockSmoothly(`page-support`, dataSplit[8]);currentUserID=parseInt(dataSplit[3]);currentUserType=parseInt(dataSplit[4]);isTracking=parseInt(dataSplit[5]);newNotifCount=parseInt(dataSplit[6]);updateNotifCount(newNotifCount);if(currentUserID > 0){if(currentUserType === 1){document.getElementById('datXeNgayPageSupport').style.display='none';}if(!localStorage.getItem('fcm_current_token')){processFCMRegistration(false).catch(console.error);}initializeAllServices();renderModalFromCache();foregroundScanner = setTimeout(scanAndExecuteNotificationRedis, SCAN_INTERVALS.FAST);startAutoUpdate(`home`, null, (isTracking === 0 ? `homeAutoRefresh` : `homeAutoRefreshDoing`), 1);let showNews = getCookie('showNews');if(showNews != 1){chatModal.style.display = 'flex';loadIframeUrl('https://www.xeghep.cc/ChatRoom.shtml?room='+ (currentUserType === 1 ? 'Th%C3%B4ng+B%C3%A1o+T%C3%A0i+X%E1%BA%BF' : 'Th%C3%B4ng+B%C3%A1o+Kh%C3%A1ch')).then(() => {});setCookie('showNews',1,1);}if(/*currentUserType === 1 && */urlParams.get('showInstallGuide') === '1' && (getCookie('fromNativeApp') != 1 || getCookie('isIOSCapacitor') != 1 && getCookie('isAndroidTWA') != 1 && getCookie('isWebAppPWA') != 1)){window.AddToHomeScreenInstance.show('vn');}}else{if(localStorage.getItem('fcm_current_token')){sendAjaxRequest('https://www.xeghep.cc/AjaxLoad.php', 'GET', null, { act: 'autoLoginBack', fcmToken: localStorage.getItem('fcm_current_token') }, function(data) {var dataSplit=data.split(pfxSplitCallback);if(parseInt(dataSplit[0]) > 0){currentUserID=parseInt(dataSplit[0]);update3Block();}else{localStorage.removeItem('fcm_current_token');}}, false, false, function(data){localStorage.removeItem('fcm_current_token');});}}});
+		sendAjaxRequest('https://www.xeghep.cc/AjaxLoad.php', 'GET', null, { act: '3Block', rand: Date.now() }, function(data) {var dataSplit=data.split(pfxSplitCallback);if(dontUpdateBlock1 === false){updateBlockSmoothly(`page-home`, dataSplit[0]);}updateBlockSmoothly(`side-menu`, dataSplit[1]);updateBlockSmoothly(`page-profile`, dataSplit[2]);updateBlockSmoothly(`page-support`, dataSplit[8]);currentUserID=parseInt(dataSplit[3]);currentUserType=parseInt(dataSplit[4]);isTracking=parseInt(dataSplit[5]);newNotifCount=parseInt(dataSplit[6]);updateNotifCount(newNotifCount);if(currentUserID > 0){if(currentUserType === 1){document.getElementById('datXeNgayPageSupport').style.display='none';}if(!localStorage.getItem('fcm_current_token')){processFCMRegistration(false).catch(console.error);}initializeAllServices();renderModalFromCache();foregroundScanner = setTimeout(scanAndExecuteNotificationRedis, SCAN_INTERVALS.FAST);startAutoUpdate(`home`, null, (isTracking === 0 ? `homeAutoRefresh` : `homeAutoRefreshDoing`), 1);let showNews = getCookie('showNews');if(showNews != 1){if(!document.getElementById('chatWindow')){createChatFrame();}chatModal.style.display = 'flex';loadIframeUrl('https://www.xeghep.cc/ChatRoom.shtml?room='+ (currentUserType === 1 ? 'Th%C3%B4ng+B%C3%A1o+T%C3%A0i+X%E1%BA%BF' : 'Th%C3%B4ng+B%C3%A1o+Kh%C3%A1ch')).then(() => {});setCookie('showNews',1,1);}if(/*currentUserType === 1 && */urlParams.get('showInstallGuide') === '1' && (getCookie('fromNativeApp') != 1 || getCookie('isIOSCapacitor') != 1 && getCookie('isAndroidTWA') != 1 && getCookie('isWebAppPWA') != 1)){window.AddToHomeScreenInstance.show('vn');}}else{if(localStorage.getItem('fcm_current_token')){sendAjaxRequest('https://www.xeghep.cc/AjaxLoad.php', 'GET', null, { act: 'autoLoginBack', fcmToken: localStorage.getItem('fcm_current_token') }, function(data) {var dataSplit=data.split(pfxSplitCallback);if(parseInt(dataSplit[0]) > 0){currentUserID=parseInt(dataSplit[0]);update3Block();}else{localStorage.removeItem('fcm_current_token');}}, false, false, function(data){localStorage.removeItem('fcm_current_token');});}}});
 	}, 500);
 }
 
