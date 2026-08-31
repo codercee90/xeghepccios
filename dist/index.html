@@ -869,6 +869,25 @@
 		// 2. HÀM TỰ ĐỘNG SYNC COOKIE TỪ PHP VỀ LOCALSTORAGE
 		// ==========================================
 		let syncTimer = null;
+
+		// Hàm hỗ trợ decode triệt để mọi tầng URL encoding
+		function fullyDecodeValue(val) {
+			if (typeof val !== 'string') return val;
+			let decoded = val;
+			// Lặp decode cho đến khi không còn ký tự %25 hay dạng encode nào bị trùng lặp
+			while (decoded.includes('%')) {
+				try {
+					const next = decodeURIComponent(decoded);
+					if (next === decoded) break;
+					decoded = next;
+				} catch (e) {
+					// Trường hợp chứa % không phải mã encode chuẩn
+					break;
+				}
+			}
+			return decoded;
+		}
+
 		function syncNativeCookiesToStorage() {
 			// Xóa timer cũ nếu các request gọi liên tục
 			if (syncTimer) clearTimeout(syncTimer);
@@ -876,6 +895,7 @@
 			// Chờ 150ms - 200ms để Native OS ghi xong Set-Cookie (kể cả HttpOnly)
 			syncTimer = setTimeout(async () => {
 				if (
+					typeof isCapacitorEnv === 'function' &&
 					isCapacitorEnv() &&
 					window.Capacitor?.Plugins?.CapacitorCookies
 				) {
@@ -887,8 +907,10 @@
 							url: 'https://www.xeghep.cc',
 						});
 
-						for (const [key, value] of Object.entries(cookies)) {
-							localStorage.setItem('cap_cookie_' + key, value);
+						for (const [key, rawValue] of Object.entries(cookies)) {
+							// Decode triệt để trước khi lưu để ngắt vòng lặp encode
+							const cleanValue = fullyDecodeValue(rawValue);
+							localStorage.setItem('cap_cookie_' + key, cleanValue);
 						}
 					} catch (e) {
 						console.error('Lỗi sync native cookie:', e);
@@ -1023,16 +1045,20 @@ async function forceRestoreCookies() {
                 const key = localStorage.key(i);
                 if (key && key.startsWith('cap_cookie_')) {
                     const cookieName = key.replace('cap_cookie_', '');
-                    const cookieValue = localStorage.getItem(key);
+                    const rawCookieValue = localStorage.getItem(key);
 
-                    if (cookieValue) {
+                    if (rawCookieValue) {
+                        // 1. Giải mã sạch hoàn toàn trước khi đẩy sang Native
+                        const cleanValue = fullyDecodeValue(rawCookieValue);
+
                         const expiresDate = new Date();
                         expiresDate.setDate(expiresDate.getDate() + 30);
 
+                        // 2. Truyền cleanValue (raw text), Native sẽ tự encode chuẩn 1 lần duy nhất
                         await CapacitorCookies.setCookie({
                             url: 'https://www.xeghep.cc',
                             key: cookieName,
-                            value: cookieValue,
+                            value: cleanValue, 
                             expires: expiresDate.toUTCString(),
                         });
                     }
@@ -1359,13 +1385,13 @@ forceRestoreCookies().then(() => {
 <!-- Chèn thư viện Capacitor Core & Geolocation (Nếu chạy trên PWA/TWA nó sẽ tự bỏ qua không gây lỗi) -->
 <script src="https://cdn.jsdelivr.net/npm/@capacitor/core@latest/dist/capacitor.js"></script>
 
-<!--<script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
+<script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
 <script>
   // Khởi tạo vConsole để xem log ngay trên màn hình điện thoại
   if(fromApp === 'iosCapacitor'){
   var vConsole = new VConsole();
   }
-</script>-->
+</script>
 <!--<script>
   // Kiểm tra nếu trang đang chạy bên trong TWA
   if (document.referrer.includes('android-app://cc.xeghep.www.twa')) {
