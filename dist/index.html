@@ -868,20 +868,33 @@
 		// ==========================================
 		// 2. HÀM TỰ ĐỘNG SYNC COOKIE TỪ PHP VỀ LOCALSTORAGE
 		// ==========================================
-		async function syncNativeCookiesToStorage() {
-			if (isCapacitorEnv() && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorCookies) {
-				try {
-					const { CapacitorCookies } = window.Capacitor.Plugins;
-					const cookies = await CapacitorCookies.getCookies({ url: 'https://www.xeghep.cc' });
-					
-					// Lặp qua tất cả cookie PHP trả về và lưu vào LocalStorage
-					for (const [key, value] of Object.entries(cookies)) {
-						localStorage.setItem('cap_cookie_' + key, value);
+		let syncTimer = null;
+		function syncNativeCookiesToStorage() {
+			// Xóa timer cũ nếu các request gọi liên tục
+			if (syncTimer) clearTimeout(syncTimer);
+
+			// Chờ 150ms - 200ms để Native OS ghi xong Set-Cookie (kể cả HttpOnly)
+			syncTimer = setTimeout(async () => {
+				if (
+					isCapacitorEnv() &&
+					window.Capacitor?.Plugins?.CapacitorCookies
+				) {
+					try {
+						const { CapacitorCookies } = window.Capacitor.Plugins;
+						
+						// Lấy toàn bộ cookie từ Native Store
+						const cookies = await CapacitorCookies.getCookies({
+							url: 'https://www.xeghep.cc',
+						});
+
+						for (const [key, value] of Object.entries(cookies)) {
+							localStorage.setItem('cap_cookie_' + key, value);
+						}
+					} catch (e) {
+						console.error('Lỗi sync native cookie:', e);
 					}
-				} catch (e) {
-					console.error("Lỗi sync cookie:", e);
 				}
-			}
+			}, 200); // 200ms là khoảng thời gian an toàn nhất
 		}
 
 		// Hook tự động Sync Cookie mỗi khi có request AJAX/Fetch thành công
