@@ -35,6 +35,8 @@
     "allowsLinkPreview": false
   },
   "server": {
+    "iosScheme": "https",
+    "androidScheme": "https",
     "hostname": "ios.xeghep.cc"
   }
 }
