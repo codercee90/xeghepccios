@@ -863,7 +863,7 @@
 		let newNotifCount = 0;
 		let userRef = null;
 		let qrcodeInvite = null;
-		const versionNow = '1.0.59';
+		const versionNow = '1.0.60';
 		
 		// ==========================================
 		// 2. HÀM TỰ ĐỘNG SYNC COOKIE TỪ PHP VỀ LOCALSTORAGE
@@ -895,7 +895,6 @@
 			// Chờ 150ms - 200ms để Native OS ghi xong Set-Cookie (kể cả HttpOnly)
 			syncTimer = setTimeout(async () => {
 				if (
-					typeof isCapacitorEnv === 'function' &&
 					isCapacitorEnv() &&
 					window.Capacitor?.Plugins?.CapacitorCookies
 				) {
@@ -1037,33 +1036,35 @@ async function getFromCache(url) {
 // HÀM KHÔI PHỤC COOKIE TỪ LOCALSTORAGE NGƯỢC LẠI NATIVE
 // -------------------------------------------------------------
 async function forceRestoreCookies() {
-    if (isCapacitorEnv() && window.Capacitor?.Plugins?.CapacitorCookies) {
+    if (
+        isCapacitorEnv() && 
+        window.Capacitor?.Plugins?.CapacitorCookies
+    ) {
         try {
             const { CapacitorCookies } = window.Capacitor.Plugins;
 
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key && key.startsWith('cap_cookie_')) {
-                    const cookieName = key.replace('cap_cookie_', '');
-                    const rawCookieValue = localStorage.getItem(key);
+            // Snapshot danh sách key để tránh lỗi khi length thay đổi
+            const targetKeys = Object.keys(localStorage).filter(k => k.startsWith('cap_cookie_'));
 
-                    if (rawCookieValue) {
-                        // 1. Giải mã sạch hoàn toàn trước khi đẩy sang Native
-                        const cleanValue = fullyDecodeValue(rawCookieValue);
+            for (const key of targetKeys) {
+                const cookieName = key.replace('cap_cookie_', '');
+                const rawCookieValue = localStorage.getItem(key);
 
-                        const expiresDate = new Date();
-                        expiresDate.setDate(expiresDate.getDate() + 30);
+                if (rawCookieValue) {
+                    const cleanValue = fullyDecodeValue(rawCookieValue);
 
-                        // 2. Truyền cleanValue (raw text), Native sẽ tự encode chuẩn 1 lần duy nhất
-                        await CapacitorCookies.setCookie({
-                            url: 'https://www.xeghep.cc',
-                            key: cookieName,
-                            value: cleanValue, 
-                            expires: expiresDate.toUTCString(),
-                        });
-                    }
+                    const expiresDate = new Date();
+                    expiresDate.setDate(expiresDate.getDate() + 30);
+
+                    await CapacitorCookies.setCookie({
+                        url: 'https://www.xeghep.cc',
+                        key: cookieName,
+                        value: cleanValue, 
+                        expires: expiresDate.toISOString(),
+                    });
                 }
             }
+            console.log('Restore native cookies thành công!');
         } catch (e) {
             console.error('Lỗi restore cookie:', e);
         }
@@ -1074,19 +1075,32 @@ async function forceRestoreCookies() {
 // 1. LẮNG NGHE SỰ KIỆN NỀN (BACKGROUND -> FOREGROUND)
 // -------------------------------------------------------------
 if (isCapacitorEnv()) {
-    // Tự động Restore khi người dùng bật lại App từ Background
+    
+    // Biến khóa chống chạy trùng lặp (Race Condition lock)
+    let isRestoring = false;
+    window.ensureCookiesRestored = async function() {
+        if (isRestoring) return;
+        isRestoring = true;
+        try {
+            await forceRestoreCookies();
+        } finally {
+            isRestoring = false;
+        }
+    };
+
+    // Khi bật lại App từ Background
     if (window.Capacitor?.Plugins?.App) {
         window.Capacitor.Plugins.App.addListener('appStateChange', async (state) => {
             if (state.isActive) {
-                await forceRestoreCookies();
+                await window.ensureCookiesRestored();
             }
         });
     }
 
-    // Backup listener bằng sự kiện visibilitychange tiêu chuẩn của trình duyệt/webview
+    // Backup listener bằng visibilitychange
     document.addEventListener('visibilitychange', async () => {
         if (document.visibilityState === 'visible') {
-            await forceRestoreCookies();
+            await window.ensureCookiesRestored();
         }
     });
 }
@@ -1098,6 +1112,12 @@ if (isCapacitorEnv()) {
     const originalFetch = window.fetch;
 
     window.fetch = async function(...args) {
+        // Đảm bảo Cookie luôn được Restore xuống Native trước khi request bắn đi
+        try {
+            await forceRestoreCookies();
+        } catch (e) {
+            console.error('Lỗi restore cookie trước fetch:', e);
+        }
         // Đảm bảo request fetch luôn gửi kèm Credentials (Cookie)
         if (!args[1]) args[1] = {};
         args[1].credentials = args[1].credentials || 'include';
@@ -1157,9 +1177,20 @@ if (isCapacitorEnv()) {
     // 3. HOOK JQUERY AJAX (SWR + Async Cache)
     // -------------------------------------------------------------
     if (typeof $ !== 'undefined') {
+        // 1. Cấu hình mặc định toàn cục cho jQuery AJAX
+		$.ajaxSetup({
+			xhrFields: {
+				withCredentials: true // Luôn đính kèm Cookie
+			},
+			beforeSend: function() {
+				// Kích hoạt restore cookie ngầm trước khi gửi request
+				forceRestoreCookies();
+			}
+		});
+		
         $.ajaxPrefilter(function(options, originalOptions, jqXHR) {
-            options.xhrFields = options.xhrFields || {};
-            options.xhrFields.withCredentials = true;
+            //options.xhrFields = options.xhrFields || {};
+            //options.xhrFields.withCredentials = true;
 
             if (options.type && options.type.toUpperCase() !== 'GET') return;
 
