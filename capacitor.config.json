@@ -24,7 +24,7 @@
       "presentationOptions": ["badge", "sound", "alert"]
     },
     "CapacitorHttp": {
-      "enabled": true
+      "enabled": false
     },
     "CapacitorCookies": {
       "enabled": true
