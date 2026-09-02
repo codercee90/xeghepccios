@@ -863,7 +863,7 @@
 		let newNotifCount = 0;
 		let userRef = null;
 		let qrcodeInvite = null;
-		const versionNow = '1.0.60';
+		const versionNow = '1.0.61';
 
 // -------------------------------------------------------------
 // KHỞI TẠO BỘ NHỚ INDEXEDDB
@@ -2869,7 +2869,7 @@ function handleDeposit(element) {
 		var bankID=0;
 		var qrcodeImg='';
 
-		sendAjaxRequest('https://www.xeghep.cc/Index.shtml?fromNativeApp=1&checkBank=1&amount='+ encodeURIComponent(parseInt(document.getElementById('deposit-amount').value)), 'GET', null, null, function(data) {
+		sendAjaxRequest('https://www.xeghep.cc/AjaxLoad.php?act=checkBank&amount='+ encodeURIComponent(parseInt(document.getElementById('deposit-amount').value)), 'GET', null, null, function(data) {
 
 			var dataSplit=data.split('|');
 			bankID=dataSplit[1];
@@ -2880,7 +2880,7 @@ function handleDeposit(element) {
 				qrcodeImg='https://img.vietqr.io/image/'+ encodeURIComponent(dataSplit[2]) +'-'+ encodeURIComponent(dataSplit[3]) +'-print.jpg?amount='+ encodeURIComponent(parseInt(document.getElementById('deposit-amount').value)*1000) +'&addInfo=gui+cho+'+ encodeURIComponent(dataSplit[5]) +'+'+ encodeURIComponent(dataSplit[0]);
 			}
 			
-			sendAjaxRequest('https://www.xeghep.cc/Index.shtml?fromNativeApp=1&act=nap&sbmit=1&amount='+ encodeURIComponent(parseInt(document.getElementById('deposit-amount').value)) +'&bankID='+ bankID +'&bankAPI='+ bankAPI, 'GET', null, null, function(data){
+			sendAjaxRequest('https://www.xeghep.cc/AjaxLoad.php?act=nap&amount='+ encodeURIComponent(parseInt(document.getElementById('deposit-amount').value)) +'&bankID='+ bankID +'&bankAPI='+ bankAPI, 'GET', null, null, function(data){
 				
 				const moneyAmount = parseInt(document.getElementById('deposit-amount').value)*1000;
 				// Hiển thị kết quả ra Block kế bên
@@ -2963,7 +2963,7 @@ function submitWithdraw(element) {
 	}
 
 	if(parseInt(points) > 0){
-		sendAjaxRequest('https://www.xeghep.cc/Index.shtml?fromNativeApp=1&act=rut&sbmit=1&amount='+ encodeURIComponent(parseInt(document.getElementById('withdraw-amount').value)) +'&wallet='+ encodeURIComponent(document.getElementById('withdraw-account-number').value) +'&bank='+ encodeURIComponent(document.getElementById('withdraw-bank').value) +'&owner='+ encodeURIComponent(document.getElementById('withdraw-account-name').value), 'GET', null, null, function(data) {}, silent=false, modal=false, callbackFailed=null, btn=element);
+		sendAjaxRequest('https://www.xeghep.cc/AjaxLoad.php?act=rut&amount='+ encodeURIComponent(parseInt(document.getElementById('withdraw-amount').value)) +'&wallet='+ encodeURIComponent(document.getElementById('withdraw-account-number').value) +'&bank='+ encodeURIComponent(document.getElementById('withdraw-bank').value) +'&owner='+ encodeURIComponent(document.getElementById('withdraw-account-name').value), 'GET', null, null, function(data) {}, silent=false, modal=false, callbackFailed=null, btn=element);
 	}
 }
 
