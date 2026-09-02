@@ -17,9 +17,9 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>3.8</string>
+    <string>3.9</string>
     <key>CFBundleVersion</key>
-    <string>91</string>
+    <string>92</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
 
@@ -97,6 +97,12 @@
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>vi</string>
+	</array>
+
+	<key>WKAppBoundDomains</key>
+	<array>
+		<string>xeghep.cc</string>
+		<string>www.xeghep.cc</string>
 	</array>
 
 </dict>
