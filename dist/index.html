@@ -864,74 +864,6 @@
 		let userRef = null;
 		let qrcodeInvite = null;
 		const versionNow = '1.0.60';
-		
-		// ==========================================
-		// 2. HÀM TỰ ĐỘNG SYNC COOKIE TỪ PHP VỀ LOCALSTORAGE
-		// ==========================================
-		let syncTimer = null;
-
-		// Hàm hỗ trợ decode triệt để mọi tầng URL encoding
-		function fullyDecodeValue(val) {
-			if (typeof val !== 'string') return val;
-			let decoded = val;
-			// Lặp decode cho đến khi không còn ký tự %25 hay dạng encode nào bị trùng lặp
-			while (decoded.includes('%')) {
-				try {
-					const next = decodeURIComponent(decoded);
-					if (next === decoded) break;
-					decoded = next;
-				} catch (e) {
-					// Trường hợp chứa % không phải mã encode chuẩn
-					break;
-				}
-			}
-			return decoded;
-		}
-
-		function syncNativeCookiesToStorage() {
-			// Xóa timer cũ nếu các request gọi liên tục
-			if (syncTimer) clearTimeout(syncTimer);
-
-			// Chờ 150ms - 200ms để Native OS ghi xong Set-Cookie (kể cả HttpOnly)
-			syncTimer = setTimeout(async () => {
-				if (
-					isCapacitorEnv() &&
-					window.Capacitor?.Plugins?.CapacitorCookies
-				) {
-					try {
-						const { CapacitorCookies } = window.Capacitor.Plugins;
-						
-						// Lấy toàn bộ cookie từ Native Store
-						const cookies = await CapacitorCookies.getCookies({
-							url: 'https://www.xeghep.cc',
-						});
-
-						for (const [key, rawValue] of Object.entries(cookies)) {
-							// Decode triệt để trước khi lưu để ngắt vòng lặp encode
-							const cleanValue = fullyDecodeValue(rawValue);
-							localStorage.setItem('cap_cookie_' + key, cleanValue);
-						}
-					} catch (e) {
-						console.error('Lỗi sync native cookie:', e);
-					}
-				}
-			}, 200); // 200ms là khoảng thời gian an toàn nhất
-		}
-
-		// Hook tự động Sync Cookie mỗi khi có request AJAX/Fetch thành công
-		/*if (typeof $ !== 'undefined') {
-			$(document).ajaxComplete(function() {
-				syncNativeCookiesToStorage();
-			});
-		}
-		if (isCapacitorEnv()) {
-			const originalFetch = window.fetch;
-			window.fetch = async function(...args) {
-				const response = await originalFetch(...args);
-				syncNativeCookiesToStorage();
-				return response;
-			};
-		}*/
 
 // -------------------------------------------------------------
 // KHỞI TẠO BỘ NHỚ INDEXEDDB
@@ -1032,43 +964,117 @@ async function getFromCache(url) {
     }
 }
 
+		// ==========================================
+		// 2. HÀM TỰ ĐỘNG SYNC COOKIE TỪ PHP VỀ LOCALSTORAGE
+		// ==========================================
+		let syncTimer = null;
+
+		// Hàm hỗ trợ decode triệt để mọi tầng URL encoding
+		function fullyDecodeValue(val) {
+			if (typeof val !== 'string') return val;
+			let decoded = val;
+			// Lặp decode cho đến khi không còn ký tự %25 hay dạng encode nào bị trùng lặp
+			while (decoded.includes('%')) {
+				try {
+					const next = decodeURIComponent(decoded);
+					if (next === decoded) break;
+					decoded = next;
+				} catch (e) {
+					// Trường hợp chứa % không phải mã encode chuẩn
+					break;
+				}
+			}
+			return decoded;
+		}
+
+		function syncNativeCookiesToStorage() {
+			// Xóa timer cũ nếu các request gọi liên tục
+			if (syncTimer) clearTimeout(syncTimer);
+
+			// Chờ 150ms - 200ms để Native OS ghi xong Set-Cookie (kể cả HttpOnly)
+			syncTimer = setTimeout(async () => {
+				if (
+					isCapacitorEnv() &&
+					window.Capacitor?.Plugins?.CapacitorCookies
+				) {
+					try {
+						const { CapacitorCookies } = window.Capacitor.Plugins;
+						
+						// Lấy toàn bộ cookie từ Native Store
+						const cookies = await CapacitorCookies.getCookies({
+							url: 'https://www.xeghep.cc',
+						});
+
+						// CHỐNG XÓA OAN LOCALSTORAGE: Chỉ ghi đè khi thực sự lấy được cookie từ Native Store
+						if (cookies && Object.keys(cookies).length > 0) {
+							for (const [key, rawValue] of Object.entries(cookies)) {
+								// Decode triệt để trước khi lưu để ngắt vòng lặp encode
+								const cleanValue = fullyDecodeValue(rawValue);
+								localStorage.setItem('cap_cookie_' + key, cleanValue);
+							}
+						}
+					} catch (e) {
+						console.error('Lỗi sync native cookie:', e);
+					}
+				}
+			}, 200); // 200ms là khoảng thời gian an toàn nhất
+		}
+
 // -------------------------------------------------------------
 // HÀM KHÔI PHỤC COOKIE TỪ LOCALSTORAGE NGƯỢC LẠI NATIVE
 // -------------------------------------------------------------
+let isCookiesRestored = false;
+let restorePromise = null;
+
 async function forceRestoreCookies() {
-    if (
-        isCapacitorEnv() && 
-        window.Capacitor?.Plugins?.CapacitorCookies
-    ) {
-        try {
-            const { CapacitorCookies } = window.Capacitor.Plugins;
+    // Nếu đã restore xong thì bỏ qua ngay để không delay request
+    if (isCookiesRestored) return true;
+    if (restorePromise) return restorePromise;
 
-            // Snapshot danh sách key để tránh lỗi khi length thay đổi
-            const targetKeys = Object.keys(localStorage).filter(k => k.startsWith('cap_cookie_'));
+    restorePromise = (async () => {
+        if (
+            isCapacitorEnv() && 
+            window.Capacitor?.Plugins?.CapacitorCookies
+        ) {
+            try {
+                const { CapacitorCookies } = window.Capacitor.Plugins;
 
-            for (const key of targetKeys) {
-                const cookieName = key.replace('cap_cookie_', '');
-                const rawCookieValue = localStorage.getItem(key);
+                // Snapshot danh sách key để tránh lỗi khi length thay đổi
+                const targetKeys = Object.keys(localStorage).filter(k => k.startsWith('cap_cookie_'));
 
-                if (rawCookieValue) {
-                    const cleanValue = fullyDecodeValue(rawCookieValue);
+                // Dùng Promise.all để ghi đồng thời tất cả Cookie thay vì lặp await từ cái
+                const setPromises = targetKeys.map(key => {
+                    const cookieName = key.replace('cap_cookie_', '');
+                    const rawCookieValue = localStorage.getItem(key);
 
-                    const expiresDate = new Date();
-                    expiresDate.setDate(expiresDate.getDate() + 30);
+                    if (rawCookieValue) {
+                        const cleanValue = fullyDecodeValue(rawCookieValue);
 
-                    await CapacitorCookies.setCookie({
-                        url: 'https://www.xeghep.cc',
-                        key: cookieName,
-                        value: cleanValue, 
-                        expires: expiresDate.toISOString(),
-                    });
-                }
+                        const expiresDate = new Date();
+                        expiresDate.setDate(expiresDate.getDate() + 30);
+
+                        return CapacitorCookies.setCookie({
+                            url: 'https://www.xeghep.cc',
+                            key: cookieName,
+                            value: cleanValue, 
+                            expires: expiresDate.toUTCString(), // ĐÃ FIX: Chuyển sang định dạng UTC String chuẩn thay vì ISOString
+                        });
+                    }
+                    return Promise.resolve();
+                });
+
+                await Promise.all(setPromises);
+                isCookiesRestored = true;
+                console.log('Restore native cookies thành công!');
+            } catch (e) {
+                console.error('Lỗi restore cookie:', e);
+            } finally {
+                restorePromise = null;
             }
-            console.log('Restore native cookies thành công!');
-        } catch (e) {
-            console.error('Lỗi restore cookie:', e);
         }
-    }
+    })();
+
+    return restorePromise;
 }
 
 // -------------------------------------------------------------
@@ -1082,6 +1088,7 @@ if (isCapacitorEnv()) {
         if (isRestoring) return;
         isRestoring = true;
         try {
+            isCookiesRestored = false; // Reset cờ trạng thái khi active lại app
             await forceRestoreCookies();
         } finally {
             isRestoring = false;
@@ -1151,7 +1158,11 @@ if (isCapacitorEnv()) {
                         detail: { url: url, data: parsedData, contentType: contentType }
                     }));
                 }
-                syncNativeCookiesToStorage();
+                
+                // Chỉ sync cookie khi response thành công
+                if (response.ok) {
+                    syncNativeCookiesToStorage();
+                }
                 return response;
             })
             .catch((err) => {
@@ -1177,14 +1188,32 @@ if (isCapacitorEnv()) {
     // 3. HOOK JQUERY AJAX (SWR + Async Cache)
     // -------------------------------------------------------------
     if (typeof $ !== 'undefined') {
+        // HOOK TRỰC TIẾP VÀO HÀM $.ajax BẰNG PROMISE ĐỂ BẮT CHỜ forceRestoreCookies()
+        const originalJQueryAjax = $.ajax;
+
+        $.ajax = function(url, options) {
+            if (typeof url === 'object') {
+                options = url;
+                url = options.url;
+            } else {
+                options = options || {};
+                options.url = url;
+            }
+
+            // Đảm bảo withCredentials = true cho jQuery AJAX
+            options.xhrFields = options.xhrFields || {};
+            options.xhrFields.withCredentials = true;
+
+            // Bắt jQuery phải chờ restore cookie xong mới được bắn request POST/GET
+            return forceRestoreCookies().then(() => {
+                return originalJQueryAjax.call($, options);
+            });
+        };
+
         // 1. Cấu hình mặc định toàn cục cho jQuery AJAX
 		$.ajaxSetup({
 			xhrFields: {
 				withCredentials: true // Luôn đính kèm Cookie
-			},
-			beforeSend: function() {
-				// Kích hoạt restore cookie ngầm trước khi gửi request
-				forceRestoreCookies();
 			}
 		});
 		
@@ -1192,7 +1221,15 @@ if (isCapacitorEnv()) {
             //options.xhrFields = options.xhrFields || {};
             //options.xhrFields.withCredentials = true;
 
-            if (options.type && options.type.toUpperCase() !== 'GET') return;
+            if (options.type && options.type.toUpperCase() !== 'GET') {
+                // Với POST/PUT/DELETE, vẫn đăng ký callback sync cookie sau khi gửi xong
+                const userSuccess = options.success;
+                options.success = function(data, textStatus, xhr) {
+                    syncNativeCookiesToStorage();
+                    if (typeof userSuccess === 'function') userSuccess(data, textStatus, xhr);
+                };
+                return;
+            }
 
             const url = options.url;
 
