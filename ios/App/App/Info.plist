@@ -19,7 +19,7 @@
     <key>CFBundleShortVersionString</key>
     <string>3.9</string>
     <key>CFBundleVersion</key>
-    <string>93</string>
+    <string>94</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
 
@@ -103,6 +103,7 @@
 	<array>
 		<string>xeghep.cc</string>
 		<string>www.xeghep.cc</string>
+		<string>ios.xeghep.cc</string>
 	</array>
 
 </dict>
