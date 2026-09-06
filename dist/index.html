@@ -863,7 +863,8 @@
 		let newNotifCount = 0;
 		let userRef = null;
 		let qrcodeInvite = null;
-		const versionNow = '1.0.61';
+		let minDeposit = 100;
+		const versionNow = '1.0.62';
 
 // -------------------------------------------------------------
 // KHỞI TẠO BỘ NHỚ INDEXEDDB
@@ -1453,13 +1454,13 @@ forceRestoreCookies().then(() => {
 <!-- Chèn thư viện Capacitor Core & Geolocation (Nếu chạy trên PWA/TWA nó sẽ tự bỏ qua không gây lỗi) -->
 <script src="https://cdn.jsdelivr.net/npm/@capacitor/core@latest/dist/capacitor.js"></script>
 
-<!--<script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
+<script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
 <script>
   // Khởi tạo vConsole để xem log ngay trên màn hình điện thoại
   //if(fromApp === 'iosCapacitor'){
   var vConsole = new VConsole();
   //}
-</script>-->
+</script>
 <!--<script>
   // Kiểm tra nếu trang đang chạy bên trong TWA
   if (document.referrer.includes('android-app://cc.xeghep.www.twa')) {
@@ -1924,136 +1925,6 @@ forceRestoreCookies().then(() => {
 
         <!-- Trang 5 -->
         <div id="page-deposit-withdraw" class="page">
-
-<!-- Khung chứa chính Max-Width 500px bám theo UI App -->
-<div style="max-width: 100%; margin: 0 auto; padding: 0px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; box-sizing: border-box;">
-
-    <!-- THẺ CARD TRẮNG BỌC NGOÀI (Cùng style bo góc & shadow với hình mẫu) -->
-    <div style="background: #ffffff; border-radius: 20px; padding: 20px 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.04); border: 1px solid #f0f2f5;">
-
-        <!-- 1. THANH CHUYỂN TAB NẠP / RÚT -->
-        <div style="display: flex; background: #f1f5f9; padding: 4px; border-radius: 14px; margin-bottom: 20px;">
-            <button type="button" onclick="switchWalletTab('deposit')" id="tab-btn-deposit" 
-                style="flex: 1; padding: 10px 0; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; background: #2563eb; color: #ffffff; box-shadow: 0 2px 6px rgba(37,99,235,0.2);">
-                Nạp điểm
-            </button>
-            <button type="button" onclick="switchWalletTab('withdraw')" id="tab-btn-withdraw" 
-                style="flex: 1; padding: 10px 0; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; background: transparent; color: #64748b;">
-                Rút điểm
-            </button>
-        </div>
-
-        <!-- ========================================================================= -->
-        <!-- 2. TAB NẠP ĐIỂM -->
-        <!-- ========================================================================= -->
-        <div id="tab-content-deposit" style="display: block;">
-            
-            <!-- Input Số điểm muốn nạp -->
-            <div style="margin-bottom: 16px;">
-                <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Số điểm muốn nạp (1 điểm = 1.000đ)</label>
-                <div style="position: relative; display: flex; align-items: center;">
-                    <span class="material-icons-round" style="position: absolute; left: 14px; color: #94a3b8; font-size: 20px;">add_card</span>
-                    <input type="number" id="deposit-amount" placeholder="Nhập số điểm (VD: 100)" 
-                        style="width: 100%; padding: 12px 14px 12px 44px; border: 1.5px solid #e2e8f0; border-radius: 12px; font-size: 15px; outline: none; background: #f8fafc; color: #0f172a; box-sizing: border-box; transition: all 0.2s;"
-                        onfocus="this.style.borderColor='#2563eb'; this.style.background='#fff';" 
-                        onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc';">
-                </div>
-            </div>
-
-            <!-- Button Tạo mã QR -->
-            <button type="button" onclick="handleDeposit(this)" 
-                style="width: 100%; padding: 14px; background: #2563eb; color: #ffffff; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(37,99,235,0.25);">
-                <span class="material-icons-round" style="font-size: 20px;">qr_code_2</span>
-                Tạo mã QR chuyển khoản
-            </button>
-
-            <!-- BLOCK KẾ BÊN / BÊN DƯỚI: HIỂN THỊ MÃ QR TẠO TỰ ĐỘNG -->
-            <div id="qr-result-block" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px dashed #e2e8f0; text-align: center;">
-                <p style="font-size: 13px; font-weight: 600; color: #1e293b; margin: 0 0 12px 0;">Quét mã QR dưới đây để hoàn tất thanh toán</p>
-                
-                <!-- Khung chứa QR -->
-                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px; display: inline-block;">
-                    <img id="qr-code-img" src="" alt="Mã QR Chuyển Khoản" style="width: 300px; height: auto; border-radius: 8px; display: block; margin: 0 auto;">
-                    <div style="margin-top: 10px; font-size: 12px; color: #64748b;">
-                        Số tiền: <strong id="qr-money-text" style="color: #2563eb;">0 đ</strong>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-
-        <!-- ========================================================================= -->
-        <!-- 3. TAB RÚT ĐIỂM -->
-        <!-- ========================================================================= -->
-        <div id="tab-content-withdraw" style="display: none;">
-            
-            <!-- Input Số điểm muốn rút -->
-            <div style="margin-bottom: 14px;">
-                <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Số điểm muốn rút (1 điểm = 1.000đ)</label>
-                <div style="position: relative; display: flex; align-items: center;">
-                    <span class="material-icons-round" style="position: absolute; left: 14px; color: #94a3b8; font-size: 20px;">payments</span>
-                    <input type="number" id="withdraw-amount" placeholder="Nhập số điểm cần rút" 
-                        style="width: 100%; padding: 12px 14px 12px 44px; border: 1.5px solid #e2e8f0; border-radius: 12px; font-size: 15px; outline: none; background: #f8fafc; color: #0f172a; box-sizing: border-box;"
-                        onfocus="this.style.borderColor='#2563eb'; this.style.background='#fff';" 
-                        onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc';">
-                </div>
-            </div>
-
-            <!-- Select Tên ngân hàng -->
-            <div style="margin-bottom: 14px;">
-                <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Ngân hàng nhận</label>
-                <div style="position: relative; display: flex; align-items: center;">
-                    <span class="material-icons-round" style="position: absolute; left: 14px; color: #94a3b8; font-size: 20px;">account_balance</span>
-                    <select id="withdraw-bank" 
-                        style="width: 100%; padding: 12px 14px 12px 44px; border: 1.5px solid #e2e8f0; border-radius: 12px; font-size: 15px; outline: none; background: #f8fafc; color: #0f172a; box-sizing: border-box; appearance: none;">
-                        <option value="">-- Chọn ngân hàng --</option>
-                    </select>
-                    <span class="material-icons-round" style="position: absolute; right: 14px; color: #94a3b8; pointer-events: none; font-size: 20px;">expand_more</span>
-                </div>
-            </div>
-
-            <!-- Input Số tài khoản -->
-            <div style="margin-bottom: 14px;">
-                <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Số tài khoản</label>
-                <div style="position: relative; display: flex; align-items: center;">
-                    <span class="material-icons-round" style="position: absolute; left: 14px; color: #94a3b8; font-size: 20px;">credit_card</span>
-                    <input type="text" id="withdraw-account-number" placeholder="Nhập số tài khoản" 
-                        style="width: 100%; padding: 12px 14px 12px 44px; border: 1.5px solid #e2e8f0; border-radius: 12px; font-size: 15px; outline: none; background: #f8fafc; color: #0f172a; box-sizing: border-box;"
-                        onfocus="this.style.borderColor='#2563eb'; this.style.background='#fff';" 
-                        onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc';">
-                </div>
-            </div>
-
-            <!-- Input Tên chủ tài khoản -->
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;">Tên chủ tài khoản (Viết hoa không dấu)</label>
-                <div style="position: relative; display: flex; align-items: center;">
-                    <span class="material-icons-round" style="position: absolute; left: 14px; color: #94a3b8; font-size: 20px;">person</span>
-                    <input type="text" id="withdraw-account-name" placeholder="VD: NGUYEN VAN A" 
-                        style="width: 100%; padding: 12px 14px 12px 44px; border: 1.5px solid #e2e8f0; border-radius: 12px; font-size: 15px; outline: none; background: #f8fafc; color: #0f172a; box-sizing: border-box; text-transform: uppercase;"
-                        onfocus="this.style.borderColor='#2563eb'; this.style.background='#fff';" 
-                        onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc';">
-                </div>
-            </div>
-
-            <!-- Button Xác nhận rút -->
-            <button type="button" onclick="submitWithdraw(this)" 
-                style="width: 100%; padding: 14px; background: #2563eb; color: #ffffff; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(37,99,235,0.25);">
-                <span class="material-icons-round" style="font-size: 20px;">check_circle</span>
-                Xác nhận rút điểm
-            </button>
-			
-			<script>
-				window.addEventListener('DOMContentLoaded', function(){
-					sendAjaxRequest('https://www.xeghep.cc/AjaxLoad.php', 'GET', null, { act: 'getBankList' }, function(data) {var dataSplit=data.split(pfxSplitCallback);document.getElementById('withdraw-bank').innerHTML += dataSplit[0];document.getElementById('withdraw-account-number').value = dataSplit[1];document.getElementById('withdraw-account-name').value = dataSplit[2];}, silent=false, modal=false, callbackFailed=null, btn=null);
-				});
-			</script>
-
-        </div>
-
-    </div>
-</div>
-
         </div>
 
         <!-- Khung chứa file HTML ngoài (Mặc định ẩn đi, khi nào cần thì hiển thị) style="display: none; width: 100%; height: calc(100vh - 60px); overflow: hidden; border: none; -webkit-overflow-scrolling: touch;" -->
@@ -2861,8 +2732,8 @@ function handleDeposit(element) {
 	
 	if(parseInt(document.getElementById('deposit-amount').value) > 0){
 		
-		if(parseInt(document.getElementById('deposit-amount').value) < 180){
-			showAppNotification('error', 'Hãy nạp tối thiểu 180 điểm');
+		if(parseInt(document.getElementById('deposit-amount').value) < minDeposit){
+			showAppNotification('error', 'Hãy nạp tối thiểu '+ minDeposit +' điểm');
 			return false
 		}
 
@@ -2958,7 +2829,7 @@ function submitWithdraw(element) {
 	const accName = document.getElementById('withdraw-account-name').value;
 
 	if (!points || !bank || !accNo || !accName) {
-		showAppNotification('error', 'Vui lòng điền đầy đủ thông tin nhận tiền!');
+		showAppNotification('error', 'Vui lòng điền đầy đủ thông tin!');
 		return;
 	}
 
@@ -3992,7 +3863,7 @@ initNotificationStorage();
 
 function update3Block(dontUpdateBlock1=false){
 	setTimeout(()=>{
-		sendAjaxRequest('https://www.xeghep.cc/AjaxLoad.php', 'GET', null, { act: '3Block', rand: Date.now() }, function(data) {var dataSplit=data.split(pfxSplitCallback);if(dontUpdateBlock1 === false){updateBlockSmoothly(`page-home`, dataSplit[0]);}updateBlockSmoothly(`side-menu`, dataSplit[1]);updateBlockSmoothly(`page-profile`, dataSplit[2]);updateBlockSmoothly(`page-support`, dataSplit[8]);currentUserID=parseInt(dataSplit[3]);currentUserType=parseInt(dataSplit[4]);isTracking=parseInt(dataSplit[5]);newNotifCount=parseInt(dataSplit[6]);updateNotifCount(newNotifCount);if(currentUserID > 0){if(currentUserType === 1){document.getElementById('datXeNgayPageSupport').style.display='none';}if(!localStorage.getItem('fcm_current_token')){processFCMRegistration(false).catch(console.error);}initializeAllServices();renderModalFromCache();foregroundScanner = setTimeout(scanAndExecuteNotificationRedis, SCAN_INTERVALS.FAST);startAutoUpdate(`home`, null, (isTracking === 0 ? `homeAutoRefresh` : `homeAutoRefreshDoing`), 1);let showNews = getCookie('showNews');if(showNews != 1){if(!document.getElementById('chatWindow')){createChatFrame();}chatModal.style.display = 'flex';loadIframeUrl('https://www.xeghep.cc/ChatRoom.shtml?room='+ (currentUserType === 1 ? 'Th%C3%B4ng+B%C3%A1o+T%C3%A0i+X%E1%BA%BF' : 'Th%C3%B4ng+B%C3%A1o+Kh%C3%A1ch')).then(() => {});setCookie('showNews',1,1);}if(/*currentUserType === 1 && */urlParams.get('showInstallGuide') === '1' && (getCookie('fromNativeApp') != 1 || getCookie('isIOSCapacitor') != 1 && getCookie('isAndroidTWA') != 1 && getCookie('isWebAppPWA') != 1)){window.AddToHomeScreenInstance.show('vn');}}else{if(localStorage.getItem('fcm_current_token')){sendAjaxRequest('https://www.xeghep.cc/AjaxLoad.php', 'GET', null, { act: 'autoLoginBack', fcmToken: localStorage.getItem('fcm_current_token') }, function(data) {var dataSplit=data.split(pfxSplitCallback);if(parseInt(dataSplit[0]) > 0){currentUserID=parseInt(dataSplit[0]);update3Block();}else{localStorage.removeItem('fcm_current_token');}}, false, false, function(data){localStorage.removeItem('fcm_current_token');});}}});
+		sendAjaxRequest('https://www.xeghep.cc/AjaxLoad.php', 'GET', null, { act: '3Block', rand: Date.now() }, function(data) {var dataSplit=data.split(pfxSplitCallback);if(dontUpdateBlock1 === false){updateBlockSmoothly(`page-home`, dataSplit[0]);}updateBlockSmoothly(`side-menu`, dataSplit[1]);updateBlockSmoothly(`page-profile`, dataSplit[2]);updateBlockSmoothly(`page-support`, dataSplit[8]);updateBlockSmoothly(`page-deposit-withdraw`, dataSplit[9]);minDeposit=parseInt(dataSplit[10]);currentUserID=parseInt(dataSplit[3]);currentUserType=parseInt(dataSplit[4]);isTracking=parseInt(dataSplit[5]);newNotifCount=parseInt(dataSplit[6]);updateNotifCount(newNotifCount);if(currentUserID > 0){if(currentUserType === 1){document.getElementById('datXeNgayPageSupport').style.display='none';}if(!localStorage.getItem('fcm_current_token')){processFCMRegistration(false).catch(console.error);}initializeAllServices();renderModalFromCache();foregroundScanner = setTimeout(scanAndExecuteNotificationRedis, SCAN_INTERVALS.FAST);startAutoUpdate(`home`, null, (isTracking === 0 ? `homeAutoRefresh` : `homeAutoRefreshDoing`), 1);let showNews = getCookie('showNews');if(showNews != 1){if(!document.getElementById('chatWindow')){createChatFrame();}chatModal.style.display = 'flex';loadIframeUrl('https://www.xeghep.cc/ChatRoom.shtml?room='+ (currentUserType === 1 ? 'Th%C3%B4ng+B%C3%A1o+T%C3%A0i+X%E1%BA%BF' : 'Th%C3%B4ng+B%C3%A1o+Kh%C3%A1ch')).then(() => {});setCookie('showNews',1,1);}if(/*currentUserType === 1 && */urlParams.get('showInstallGuide') === '1' && (getCookie('fromNativeApp') != 1 || getCookie('isIOSCapacitor') != 1 && getCookie('isAndroidTWA') != 1 && getCookie('isWebAppPWA') != 1)){window.AddToHomeScreenInstance.show('vn');}}else{if(localStorage.getItem('fcm_current_token')){sendAjaxRequest('https://www.xeghep.cc/AjaxLoad.php', 'GET', null, { act: 'autoLoginBack', fcmToken: localStorage.getItem('fcm_current_token') }, function(data) {var dataSplit=data.split(pfxSplitCallback);if(parseInt(dataSplit[0]) > 0){currentUserID=parseInt(dataSplit[0]);update3Block();}else{localStorage.removeItem('fcm_current_token');}}, false, false, function(data){localStorage.removeItem('fcm_current_token');});}}});
 	}, 500);
 }
 
