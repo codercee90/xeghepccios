@@ -2681,7 +2681,7 @@ function handleRegister(event, btn=null) {
 	const isPasswordMatch = validatePasswordMatch();
 
 	if (isUsernameValid && isPhoneValid && isPasswordMatch) {
-		sendAjaxRequest('https://www.xeghep.cc/AjaxLoad.php', 'GET', null, { act: 'register', userName: document.getElementById('reg-username').value, userPassword: document.getElementById('reg-password').value, userPasswordRepeat: document.getElementById('reg-repassword').value, userMobile: document.getElementById('reg-phone').value, userType: document.getElementById('userType').value }, function(data) {
+		sendAjaxRequest('https://www.xeghep.cc/AjaxLoad.php', 'GET', null, { act: 'register', userName: document.getElementById('reg-username').value, userPassword: document.getElementById('reg-password').value, userPasswordRepeat: document.getElementById('reg-repassword').value, userMobile: document.getElementById('reg-phone').value, userType: document.getElementById('userType').value, userRef: document.getElementById('reg-referral').value }, function(data) {
 			update3Block();
 		}, false, false, function(){}, btn);
 	} else {
