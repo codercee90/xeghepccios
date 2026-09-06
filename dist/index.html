@@ -2685,7 +2685,7 @@ function handleRegister(event, btn=null) {
 			update3Block();
 		}, false, false, function(){}, btn);
 	} else {
-		showAppNotification('error', 'Vui lòng kiểm tra lại thông tin nhập vào các ô bị đỏ!');
+		showAppNotification('error', 'Kiểm tra lại thông tin các ô bị đỏ!');
 	}
 }
 
@@ -2733,7 +2733,7 @@ function handleDeposit(element) {
 	if(parseInt(document.getElementById('deposit-amount').value) > 0){
 		
 		if(parseInt(document.getElementById('deposit-amount').value) < minDeposit){
-			showAppNotification('error', 'Hãy nạp tối thiểu '+ minDeposit +' điểm');
+			showAppNotification('error', 'Mua tối thiểu '+ minDeposit +' điểm');
 			return false
 		}
 
@@ -2799,7 +2799,7 @@ function switchWalletTab(tabName) {
 function generateDepositQR() {
 	const points = document.getElementById('deposit-amount').value;
 	if (!points || points <= 0) {
-		alert('Vui lòng nhập số điểm hợp lệ!');
+		alert('Hãy nhập số điểm hợp lệ!');
 		return;
 	}
 
@@ -2829,7 +2829,7 @@ function submitWithdraw(element) {
 	const accName = document.getElementById('withdraw-account-name').value;
 
 	if (!points || !bank || !accNo || !accName) {
-		showAppNotification('error', 'Vui lòng điền đầy đủ thông tin!');
+		showAppNotification('error', 'Hãy nhập đầy đủ thông tin!');
 		return;
 	}
 
@@ -5340,7 +5340,7 @@ if (fileInput && fileInput.files.length > 0) {
         alert('Đã tải tệp tin lên hệ thống thành công!');
     });
 } else {
-    alert('Vui lòng chọn file trước khi bấm gửi.');
+    alert('Hãy chọn file trước khi bấm gửi.');
 }
 
 */
